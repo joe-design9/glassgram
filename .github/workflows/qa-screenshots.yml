@@ -25,9 +25,12 @@ jobs:
       - name: Boot a simulator
         run: |
           RUNTIME=$(xcrun simctl list runtimes -j | jq -r '[.runtimes[] | select(.isAvailable and (.name | startswith("iOS")))] | last | .identifier')
-          DEVTYPE=$(xcrun simctl list devicetypes -j | jq -r '[.devicetypes[] | select(.name | startswith("iPhone"))] | last | .identifier')
-          echo "Runtime: $RUNTIME  DeviceType: $DEVTYPE"
-          UDID=$(xcrun simctl create GlassGramQA "$DEVTYPE" "$RUNTIME")
+          UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '(.devices[$rt] // []) | map(select(.isAvailable and (.name | startswith("iPhone")))) | last | .udid // empty')
+          if [ -z "$UDID" ]; then
+            DEVTYPE=$(xcrun simctl list devicetypes -j | jq -r '[.devicetypes[] | select(.name | test("^iPhone (1[6-9]|2[0-9])"))] | sort_by(.name) | last | .identifier')
+            echo "Creating device from type: $DEVTYPE on $RUNTIME"
+            UDID=$(xcrun simctl create QA-iPhone "$DEVTYPE" "$RUNTIME")
+          fi
           echo "UDID=$UDID" >> "$GITHUB_ENV"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b

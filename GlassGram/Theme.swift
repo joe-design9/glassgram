@@ -25,28 +25,62 @@ enum Theme {
 }
 
 // MARK: - Glass styles
+//
+// Since 1.1.0 the glass is deliberately BRIGHTER: on a pure-black
+// canvas the old tints (0.055–0.07 white) read as flat matte gray.
+// Every glass surface now gets three layers:
+//   1. .glassEffect with a noticeably lighter neutral tint,
+//   2. a specular edge — a 1 pt gradient stroke, bright at the top
+//      edge and fading downward, like light catching real glass,
+//   3. a soft drop shadow so the chrome floats over the black.
 
 extension View {
-    /// Grouped card (Settings-style): one glass surface around content.
-    func glassCard(cornerRadius: CGFloat = 22) -> some View {
-        glassEffect(.regular.tint(.white.opacity(0.055)),
-                    in: .rect(cornerRadius: cornerRadius))
+    /// Specular top highlight: gradient stroke over a glass shape.
+    /// Bright (.white 0.55) at the top edge, fading to clear at the
+    /// bottom. Never hit-testable.
+    func specularEdge<S: InsettableShape>(_ shape: S) -> some View {
+        overlay(
+            shape.strokeBorder(
+                LinearGradient(
+                    colors: [.white.opacity(0.55),
+                             .white.opacity(0.14),
+                             .white.opacity(0.03),
+                             .clear],
+                    startPoint: .top, endPoint: .bottom
+                ),
+                lineWidth: 1
+            )
+            .allowsHitTesting(false)
+        )
     }
 
-    /// Capsule glass — pills, segmented controls, the input bar.
+    /// Grouped card (Settings-style): one glass surface around content.
+    func glassCard(cornerRadius: CGFloat = 22) -> some View {
+        glassEffect(.regular.tint(.white.opacity(0.13)),
+                    in: .rect(cornerRadius: cornerRadius))
+            .specularEdge(RoundedRectangle(cornerRadius: cornerRadius))
+            .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
+    }
+
+    /// Capsule glass — pills, segmented controls, the input bar,
+    /// the floating tab bar.
     func glassPill(interactive: Bool = false) -> some View {
         glassEffect(interactive
-                        ? .regular.tint(.white.opacity(0.07)).interactive()
-                        : .regular.tint(.white.opacity(0.07)),
+                        ? .regular.tint(.white.opacity(0.14)).interactive()
+                        : .regular.tint(.white.opacity(0.14)),
                     in: .capsule)
+            .specularEdge(Capsule())
+            .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
     }
 
     /// Round glass button (header actions, call controls).
     func glassCircle(interactive: Bool = true) -> some View {
         glassEffect(interactive
-                        ? .regular.tint(.white.opacity(0.07)).interactive()
-                        : .regular.tint(.white.opacity(0.07)),
+                        ? .regular.tint(.white.opacity(0.14)).interactive()
+                        : .regular.tint(.white.opacity(0.14)),
                     in: .circle)
+            .specularEdge(Circle())
+            .shadow(color: .black.opacity(0.40), radius: 9, x: 0, y: 4)
     }
 }
 

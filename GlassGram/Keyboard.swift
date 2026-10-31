@@ -4,21 +4,24 @@ import UIKit
 // MARK: - Tap-outside keyboard dismissal
 //
 // GlassGram rule (carried over from the sister project): the keyboard must go away by TAPPING anywhere
-// outside a text field ("wegdrücken") — not via a toolbar button. Two
-// layers make this robust:
+// outside a text field ("wegdrücken") — not via a toolbar button.
 //
-// 1. A window-level UITapGestureRecognizer (`KeyboardTapGuard`) that
-//    observes every tap WITHOUT cancelling touches (buttons, scrolling
-//    and lists keep working). Taps landing on a text input are excluded
-//    in `shouldReceive` — those taps are meant to focus the field — and
-//    every other tap resigns the first responder.
-// 2. A SwiftUI `simultaneousGesture(TapGesture)` on each screen root
-//    (this file's `dismissKeyboardOnTap()`), as the brief requires. Its
-//    handler consults the guard's "last input touch" timestamp so a tap
-//    that just focused a field never instantly unfocuses it again.
+// Implementation: ONE layer only — a window-level
+// UITapGestureRecognizer (`KeyboardTapGuard`) that observes every tap
+// WITHOUT cancelling touches (buttons, scrolling and lists keep
+// working: `cancelsTouchesInView = false` and simultaneous
+// recognition). Taps landing on a text input are excluded in
+// `shouldReceive` — those taps are meant to focus the field — and
+// every other tap resigns the first responder.
 //
-// The "Fertig" toolbar remains in the forms as a secondary backup, and
-// `.scrollDismissesKeyboard(.interactively)` stays on the scroll views.
+// HISTORY (v1.1.0 bug fix): there used to be a second layer — a
+// SwiftUI `simultaneousGesture(TapGesture())` on each screen root.
+// That gesture sat on the containers wrapping the chat/contact
+// LISTS and swallowed row taps: on v1.0.0 the chat rows stopped
+// responding ("Ich kann auf die Chats nicht draufdrücken"). A
+// SwiftUI tap gesture must never overlay a List — the UIKit guard
+// below does the whole job safely on its own.
+// `.scrollDismissesKeyboard(.interactively)` stays on scroll views.
 
 enum KeyboardDismisser {
     /// Resigns whatever is currently first responder (field/search bar).
@@ -37,11 +40,9 @@ final class KeyboardTapGuard: NSObject, UIGestureRecognizerDelegate {
 
     private weak var installedWindow: UIWindow?
 
-    /// When the most recent tap landed on a text input. The SwiftUI
-    /// tap-to-dismiss gesture reads this to avoid unfocusing a field
-    /// the user has just tapped into. (The UIKit delegate is consulted
-    /// during touch delivery — strictly before SwiftUI reports the
-    /// completed tap — so this is always up to date when read.)
+    /// When the most recent tap landed on a text input (kept for
+    /// diagnostics; the recognizer itself excludes those taps in
+    /// `shouldReceive`).
     private(set) var lastInputTouchAt: Date = .distantPast
 
     /// Installs the recognizer on the current key window (idempotent —
@@ -104,20 +105,13 @@ private struct KeyboardInstallView: UIViewRepresentable {
 }
 
 /// Tap-outside-to-dismiss, applied to a screen's root container.
+/// ONLY installs the UIKit window guard (as a background marker) —
+/// deliberately NO SwiftUI gesture on the content: a TapGesture over
+/// a List swallows the rows' taps (the v1.0.0 chat-tap bug).
 struct DismissKeyboardOnTap: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(KeyboardInstallView())
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    // A tap within the last blink of an eye that landed
-                    // on a text input was meant to focus it — the guard
-                    // recorded it; don't resign the fresh first responder.
-                    if Date().timeIntervalSince(KeyboardTapGuard.shared.lastInputTouchAt) > 0.4 {
-                        KeyboardDismisser.hide()
-                    }
-                }
-            )
     }
 }
 

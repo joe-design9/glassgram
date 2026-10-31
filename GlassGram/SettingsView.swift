@@ -30,7 +30,7 @@ struct SettingsView: View {
                     if BuildVariant.isAdmin {
                         adminCard
                     }
-                    Text("GlassGram 1.0.0 — Demo-Version, läuft komplett lokal auf diesem iPhone.")
+                    Text("GlassGram 1.1.0 — läuft komplett lokal auf diesem iPhone.")
                         .font(.system(size: 12.5))
                         .foregroundStyle(Color(white: 0.42))
                         .multilineTextAlignment(.center)
@@ -185,14 +185,14 @@ struct SettingsView: View {
         case .devices:
             SettingsDetailView(title: "Geräte") {
                 InfoLines(lines: [
-                    "Dieses iPhone — aktiv, GlassGram 1.0.0.",
+                    "Dieses iPhone — aktiv, GlassGram 1.1.0.",
                     "Demo-Version — läuft komplett lokal auf diesem iPhone.",
                 ])
             }
         case .folders:
             SettingsDetailView(title: "Ordner") {
                 InfoLines(lines: [
-                    "Der Ordner „Favoriten“ ist in der Chatliste als Filter angelegt.",
+                    "Sobald Chats einem Ordner zugeordnet sind, erscheint der Ordner als Filter in der Chatliste.",
                     "Demo-Version — läuft komplett lokal auf diesem iPhone.",
                 ])
             }

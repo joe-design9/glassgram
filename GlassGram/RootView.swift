@@ -28,6 +28,10 @@ struct RootView: View {
             // Hide the tab bar while a conversation is open
             // (Telegram does the same — the input bar takes its place).
             if store.openChatID == nil {
+                // A whisper of neutral light behind the floating bar,
+                // so its glass visibly catches light over the black
+                // (like Telegram's bar) instead of reading matte.
+                tabBarSheen
                 GlassTabBar(selected: $store.selectedTab)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 10)
@@ -35,6 +39,29 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.22), value: store.openChatID)
+    }
+
+    /// Extremely subtle monochrome radial sheen behind the tab bar
+    /// (white ~5.5 %, fading to clear). Safe pattern: the size comes
+    /// ONLY from the GeometryReader (the screen), the glow circle is
+    /// positioned by its center and the whole layer is clipped to the
+    /// screen — it can never inflate the layout. Non-interactive.
+    private var tabBarSheen: some View {
+        GeometryReader { proxy in
+            let size = proxy.size
+            let diameter = size.width * 1.25
+            Circle()
+                .fill(RadialGradient(
+                    colors: [.white.opacity(0.055), .clear],
+                    center: .center, startRadius: 0, endRadius: diameter / 2
+                ))
+                .frame(width: diameter, height: diameter)
+                .position(x: size.width / 2, y: size.height - 30)
+        }
+        .ignoresSafeArea()
+        .clipped()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     @ViewBuilder
@@ -97,7 +124,7 @@ struct GlassTabBar: View {
                     .padding(.vertical, 7)
                     .background {
                         if selected == index {
-                            Capsule().fill(.white.opacity(0.13))
+                            Capsule().fill(.white.opacity(0.18))
                         }
                     }
                     .contentShape(Capsule())
@@ -106,15 +133,17 @@ struct GlassTabBar: View {
             }
         }
         .padding(5)
-        .glassEffect(.regular.tint(.white.opacity(0.06)), in: .capsule)
+        .glassPill()
     }
 }
 
 // MARK: - Welcome / invite gate
 
-/// First-launch gate (both builds): display name + invite code.
+/// First-launch gate (NORMAL build only): display name + invite code.
 /// Valid code → the gate opens permanently. Validation is fully
 /// offline via the shared algorithm in InviteCode.swift.
+/// The admin build never shows this view — Store opens its gate
+/// unconditionally (see the ADMIN_BUILD block in Store.init).
 struct WelcomeGateView: View {
     @EnvironmentObject private var store: Store
     @State private var name: String = ""

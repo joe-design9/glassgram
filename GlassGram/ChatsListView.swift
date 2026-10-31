@@ -10,9 +10,14 @@ struct ChatsListView: View {
     @State private var editMode: EditMode = .inactive
     @State private var showContactPicker = false
 
-    /// The custom folder name, taken from the seeded chats.
+    /// The custom folder name, taken from the chats that carry one.
     private var folderName: String {
         store.chats.compactMap(\.folder).first ?? "Favoriten"
+    }
+
+    /// True once any chat besides "Gespeichertes" exists.
+    private var hasRealChats: Bool {
+        store.chats.contains { !$0.isSavedMessages }
     }
 
     private var visibleChats: [GGChat] {
@@ -29,7 +34,11 @@ struct ChatsListView: View {
             VStack(spacing: 10) {
                 header
                 searchField
-                filterPill
+                // The folder filter only appears once a chat actually
+                // carries a folder — an empty app shows no pill.
+                if store.chats.contains(where: { $0.folder != nil }) {
+                    filterPill
+                }
                 chatList
             }
             .padding(.top, 6)
@@ -141,7 +150,7 @@ struct ChatsListView: View {
                 .padding(.vertical, 6)
                 .background {
                     if folderFilter == value {
-                        Capsule().fill(.white.opacity(0.16))
+                        Capsule().fill(.white.opacity(0.22))
                     }
                 }
         }
@@ -153,9 +162,26 @@ struct ChatsListView: View {
     private var chatList: some View {
         List {
             ForEach(visibleChats) { chat in
-                NavigationLink(value: chat.id) {
+                // DIRECT tap navigation (v1.1.0 fix): the whole row is
+                // a plain Button that pushes the chat id onto the
+                // NavigationStack path itself. The old
+                // NavigationLink-in-List rows rendered a ">" chevron
+                // (Telegram has none) and their taps were unreliable —
+                // together with the screen-root tap gesture (removed
+                // in Keyboard.swift) they produced dead rows.
+                Button {
+                    // In edit mode a tap must NOT navigate — deleting
+                    // happens via the list's edit controls / swipe.
+                    guard !editMode.isEditing else { return }
+                    if path.last != chat.id {
+                        path.append(chat.id)
+                    }
+                } label: {
                     ChatRow(chat: chat)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .listRowBackground(Color.black)
                 .listRowSeparatorTint(.white.opacity(0.12))
                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -176,6 +202,14 @@ struct ChatsListView: View {
                     .listRowSeparator(.hidden)
             }
 
+            // Fresh-install empty state: only "Gespeichertes" exists.
+            if !hasRealChats && searchText.isEmpty && folderFilter == nil {
+                chatsEmptyState
+                    .listRowBackground(Color.black)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 40, leading: 16, bottom: 6, trailing: 16))
+            }
+
             // Keeps the last rows clear of the floating tab bar.
             Color.clear
                 .frame(height: 84)
@@ -186,6 +220,37 @@ struct ChatsListView: View {
         .scrollContentBackground(.hidden)
         .environment(\.editMode, $editMode)
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    // MARK: Empty state (Telegram style)
+
+    private var chatsEmptyState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "message.fill")
+                .font(.system(size: 34))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 92, height: 92)
+                .glassCircle(interactive: false)
+            Text("Noch keine Chats")
+                .font(.system(size: 19, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("Füge einen Kontakt hinzu, um deine erste Unterhaltung zu starten.")
+                .font(.system(size: 14.5))
+                .foregroundStyle(Theme.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 36)
+            Button {
+                store.selectedTab = 1 // Kontakte
+            } label: {
+                Text("Kontakt hinzufügen")
+                    .font(.system(size: 15.5, weight: .medium))
+                    .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 9)
+            }
+            .glassPill(interactive: true)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -244,7 +309,6 @@ struct ChatRow: View {
     }
 
     private func previewText(last: GGMessage?) -> String {
-        if store.typingChatIDs.contains(chat.id) { return "schreibt …" }
         guard let last else { return "Keine Nachrichten" }
         return (last.isMine ? "Du: " : "") + last.text
     }
@@ -260,7 +324,14 @@ struct ContactPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.contacts.filter { !$0.isChannel && !$0.isGroup }) { contact in
+                if store.contacts.isEmpty {
+                    Text("Noch keine Kontakte. Lege zuerst im Kontakte-Tab einen Kontakt an.")
+                        .foregroundStyle(Theme.secondaryText)
+                        .font(.system(size: 15))
+                        .listRowBackground(Color.black)
+                        .listRowSeparator(.hidden)
+                }
+                ForEach(store.contacts) { contact in
                     Button {
                         onPick(contact)
                     } label: {
@@ -274,8 +345,11 @@ struct ContactPickerSheet: View {
                                     .foregroundStyle(Theme.secondaryText)
                                     .font(.system(size: 13.5))
                             }
+                            Spacer()
                         }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .listRowBackground(Color.black)
                 }
             }

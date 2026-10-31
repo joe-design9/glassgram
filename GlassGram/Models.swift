@@ -5,14 +5,10 @@ import Foundation
 struct GGContact: Codable, Identifiable, Hashable {
     var id: String
     var name: String
-    /// Subtitle shown in the contacts list, e.g. "zul. online gestern um 23:01".
+    /// Subtitle shown in the contacts list (e.g. a status line).
     var status: String
     /// Index into Theme.avatarColors.
     var colorIndex: Int
-    /// Broadcast channel (CyberLeek-style): never auto-replies.
-    var isChannel: Bool = false
-    /// Group chat partner (GTA-news-style): replies come from the group.
-    var isGroup: Bool = false
 }
 
 struct GGMessage: Codable, Identifiable {
@@ -134,7 +130,7 @@ enum TimeFormat {
     }
 }
 
-/// Initials for the letter avatars ("Stefan B" → "SB", "Mama" → "M").
+/// Initials for the letter avatars ("Max Mustermann" → "MM", "Anna" → "A").
 func avatarInitials(_ name: String) -> String {
     let words = name.split(separator: " ").prefix(2)
     let letters = words.compactMap { $0.first }.map { String($0) }

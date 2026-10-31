@@ -5,9 +5,10 @@ Oberfläche, echtes `.glassEffect` überall (keine Material-Fallbacks),
 Telegram-Blau als Akzent, schwebende Glas-Tab-Bar. Tabs: **Chats ·
 Kontakte · Anrufe · Einstellungen**.
 
-v1 läuft **komplett lokal** auf dem iPhone (Demo-Kontakte antworten
-automatisch, Anrufe sind eine lokale Demo ohne echte Telefonie). Alle
-Daten liegen als JSON in UserDefaults.
+v1 läuft **komplett lokal** auf dem iPhone und startet **leer wie ein
+echter Messenger** — keine Demo-Chats, keine Fake-Kontakte; Kontakte
+legt der Nutzer selbst an. Anrufe sind eine lokale Demo ohne echte
+Telefonie. Alle Daten liegen als JSON in UserDefaults.
 
 ## Zwei Versionen — ein Code
 
@@ -16,9 +17,11 @@ Daten liegen als JSON in UserDefaults.
 | Normal | `GlassGram` | `Release` | `GlassGram.ipa` |
 | Admin | `GlassGramAdmin` | `ReleaseAdmin` (setzt `ADMIN_BUILD`) | `GlassGram-Admin.ipa` |
 
-Beide nutzen dieselbe Bundle-ID `dev.joe.glassgram` — pro Gerät wird
-eine der beiden installiert. Die Admin-Version enthält zusätzlich in
-den Einstellungen den Bereich **„Admin · Invite-Codes"**.
+Es sind zwei echte, getrennt installierbare Apps: Normal =
+`dev.joe.glassgram`, Admin = `dev.joe.glassgram.admin` (Anzeige:
+„GlassGram Admin"). Die Admin-Version kennt **keine Code-Sperre**
+(der Besitzer kommt direkt hinein) und enthält zusätzlich in den
+Einstellungen den Bereich **„Admin · Invite-Codes"**.
 
 ## Einladungscodes (offline)
 

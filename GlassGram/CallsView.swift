@@ -71,7 +71,7 @@ struct CallsView: View {
                         .padding(.vertical, 7)
                         .background {
                             if filter == option {
-                                Capsule().fill(.white.opacity(0.16))
+                                Capsule().fill(.white.opacity(0.22))
                             }
                         }
                 }
@@ -197,7 +197,14 @@ struct CallPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.contacts.filter { !$0.isChannel }) { contact in
+                if store.contacts.isEmpty {
+                    Text("Noch keine Kontakte. Lege zuerst im Kontakte-Tab einen Kontakt an.")
+                        .foregroundStyle(Theme.secondaryText)
+                        .font(.system(size: 15))
+                        .listRowBackground(Color.black)
+                        .listRowSeparator(.hidden)
+                }
+                ForEach(store.contacts) { contact in
                     Button {
                         onPick(contact)
                     } label: {
@@ -215,7 +222,9 @@ struct CallPickerSheet: View {
                             Image(systemName: "phone.fill")
                                 .foregroundStyle(Theme.accent)
                         }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .listRowBackground(Color.black)
                 }
             }

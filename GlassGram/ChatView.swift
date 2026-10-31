@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// The conversation screen: Telegram-style bubbles on black, glass
-/// input bar, demo auto-reply with "schreibt …" indicator.
+/// input bar.
 /// Keyboard: interactive scroll-dismiss + tap-outside guard — and the
 /// field deliberately re-focuses after sending so chatting can go on.
 struct ChatView: View {
@@ -19,13 +19,8 @@ struct ChatView: View {
         chat.contactID.flatMap { store.contact(id: $0) }
     }
 
-    private var isTyping: Bool {
-        store.typingChatIDs.contains(chat.id)
-    }
-
     private var statusText: String {
         if chat.isSavedMessages { return "Nachrichten an dich selbst" }
-        if isTyping { return "schreibt …" }
         return contact?.status ?? ""
     }
 
@@ -81,7 +76,7 @@ struct ChatView: View {
                     .lineLimit(1)
                 Text(statusText)
                     .font(.system(size: 13))
-                    .foregroundStyle(isTyping ? Theme.accent : Theme.secondaryText)
+                    .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)
             }
 
@@ -113,9 +108,6 @@ struct ChatView: View {
                         MessageBubble(message: message, fontScale: store.settings.fontScale)
                             .id(message.id)
                     }
-                    if isTyping {
-                        typingBubble.id("typing")
-                    }
                     Color.clear.frame(height: 4).id("bottom")
                 }
                 .padding(.horizontal, 12)
@@ -130,23 +122,6 @@ struct ChatView: View {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
             }
-            .onChange(of: isTyping) { _, _ in
-                withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo("bottom", anchor: .bottom)
-                }
-            }
-        }
-    }
-
-    private var typingBubble: some View {
-        HStack {
-            Text("•••")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(Theme.secondaryText)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .glassEffect(.regular.tint(.white.opacity(0.09)), in: .rect(cornerRadius: 18))
-            Spacer(minLength: 60)
         }
     }
 
@@ -279,9 +254,10 @@ struct MessageBubble: View {
             .glassEffect(
                 .regular.tint(message.isMine
                                 ? Theme.accent.opacity(0.48)
-                                : .white.opacity(0.09)),
+                                : .white.opacity(0.13)),
                 in: .rect(cornerRadius: 18)
             )
+            .specularEdge(RoundedRectangle(cornerRadius: 18))
             if !message.isMine { Spacer(minLength: 56) }
         }
     }

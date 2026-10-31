@@ -10,13 +10,16 @@ final class Store: ObservableObject {
     private enum Keys {
         static let profileName = "gg.profileName"
         static let gatePassed = "gg.gatePassed"
-        static let contacts = "gg.contacts.v1"
-        static let chats = "gg.chats.v1"
-        static let messages = "gg.messages.v1"
-        static let calls = "gg.calls.v1"
-        static let settings = "gg.settings.v1"
+        // v2 key set (since 1.1.0): the app starts EMPTY like a real
+        // messenger — the v1 keys held demo seed content and are
+        // deliberately abandoned so an upgrade starts clean.
+        static let contacts = "gg.contacts.v2"
+        static let chats = "gg.chats.v2"
+        static let messages = "gg.messages.v2"
+        static let calls = "gg.calls.v2"
+        static let settings = "gg.settings.v2"
         static let adminCodes = "gg.adminCodes.v1"
-        static let seeded = "gg.seeded.v1"
+        static let initialized = "gg.initialized.v2"
     }
 
     // MARK: Published state
@@ -53,9 +56,6 @@ final class Store: ObservableObject {
         didSet { persist(adminCodes, key: Keys.adminCodes) }
     }
 
-    /// Chats whose partner is currently "typing" (demo auto-reply).
-    @Published private(set) var typingChatIDs: Set<String> = []
-
     /// The chat currently on screen, if any (drives unread + tab bar).
     @Published var openChatID: String?
 
@@ -65,8 +65,6 @@ final class Store: ObservableObject {
     /// Selected main tab (RootView binds to this so tabs can jump).
     @Published var selectedTab: Int = 0
 
-    private var pendingReplies: Set<String> = []
-
     // MARK: Init
 
     init() {
@@ -74,7 +72,17 @@ final class Store: ObservableObject {
         profileName = defaults.string(forKey: Keys.profileName) ?? "Joel"
         gatePassed = defaults.bool(forKey: Keys.gatePassed)
 
-        if defaults.bool(forKey: Keys.seeded),
+        #if ADMIN_BUILD
+        // The admin build belongs to the owner — there is NO invite
+        // gate in this variant. It starts straight into the app with
+        // the stored (or default) profile name; codes are only
+        // created and handed out from the admin panel in Settings.
+        // (didSet does not fire during init — persist explicitly.)
+        gatePassed = true
+        defaults.set(true, forKey: Keys.gatePassed)
+        #endif
+
+        if defaults.bool(forKey: Keys.initialized),
            let storedContacts: [GGContact] = load(Keys.contacts),
            let storedChats: [GGChat] = load(Keys.chats) {
             contacts = storedContacts
@@ -86,8 +94,8 @@ final class Store: ObservableObject {
             }
             adminCodes = load(Keys.adminCodes) ?? []
         } else {
-            seed()
-            defaults.set(true, forKey: Keys.seeded)
+            setupEmptyState()
+            defaults.set(true, forKey: Keys.initialized)
         }
 
         // Admin build: make sure the code manager has its three
@@ -98,87 +106,28 @@ final class Store: ObservableObject {
                           createdAt: Date().addingTimeInterval(Double(-$0) * 3600),
                           status: "frei")
             }
-            // Same init-phase caveat as in seed(): persist explicitly.
+            // Same init-phase caveat as in setupEmptyState():
+            // persist explicitly.
             persist(adminCodes, key: Keys.adminCodes)
         }
     }
 
-    // MARK: Seeding (first launch)
+    // MARK: First launch — the app starts EMPTY
 
-    private func seed() {
-        let now = Date()
-        func minsAgo(_ m: Double) -> Date { now.addingTimeInterval(-m * 60) }
-        func daysAgo(_ d: Double) -> Date { now.addingTimeInterval(-d * 86_400) }
-
-        contacts = [
-            GGContact(id: "stefan", name: "Stefan B", status: "zul. online gestern um 23:01", colorIndex: 0),
-            GGContact(id: "silke", name: "Silke Vorwerk", status: "zul. online 28.10.26", colorIndex: 1),
-            GGContact(id: "jana", name: "Jana", status: "zul. online 25.10.26", colorIndex: 2),
-            GGContact(id: "mama", name: "Mama", status: "zul. online 20.10.26", colorIndex: 3),
-            GGContact(id: "gloeckner", name: "Glöckner", status: "zul. online 19.10.26", colorIndex: 4),
-            GGContact(id: "petra", name: "Petra", status: "zul. online 16.10.26", colorIndex: 5),
-            GGContact(id: "cyberleek", name: "CyberLeek", status: "Kanal · 12 480 Abonnenten", colorIndex: 6, isChannel: true),
-            GGContact(id: "gtagroup", name: "GTA 6 latest news", status: "Gruppe · 342 Mitglieder", colorIndex: 7, isGroup: true),
-        ]
-
+    /// No demo content: a real messenger opens with no chats, no
+    /// contacts and no call history. The single system entry is
+    /// "Gespeichertes" (saved messages — chat with yourself, empty).
+    private func setupEmptyState() {
+        contacts = []
         chats = [
             GGChat(id: Store.savedChatID, contactID: nil, title: "Gespeichertes", colorIndex: 0),
-            GGChat(id: "chat-gta", contactID: "gtagroup", title: "GTA 6 latest news", colorIndex: 7, isMuted: true, unread: 166, folder: "Favoriten"),
-            GGChat(id: "chat-mama", contactID: "mama", title: "Mama", colorIndex: 3, unread: 2, folder: "Favoriten"),
-            GGChat(id: "chat-stefan", contactID: "stefan", title: "Stefan B", colorIndex: 0),
-            GGChat(id: "chat-cyberleek", contactID: "cyberleek", title: "CyberLeek", colorIndex: 6, isMuted: true),
-            GGChat(id: "chat-jana", contactID: "jana", title: "Jana", colorIndex: 2),
         ]
+        messages = [:]
+        calls = []
 
-        messages = [
-            Store.savedChatID: [
-                GGMessage(chatID: Store.savedChatID, isMine: true,
-                          text: "Release-Checkliste: Preload ab 12.11. laden, Konsole freiräumen, Snacks kaufen.",
-                          date: daysAgo(1)),
-            ],
-            "chat-gta": [
-                GGMessage(chatID: "chat-gta", isMine: false,
-                          text: "Dav ist der Gruppe beigetreten", date: minsAgo(64)),
-                GGMessage(chatID: "chat-gta", isMine: false,
-                          text: "Die neue Trailer-Analyse ist online — Link steht in der Gruppenbeschreibung.",
-                          date: minsAgo(58)),
-                GGMessage(chatID: "chat-gta", isMine: false,
-                          text: "Noch 19 Tage bis Leonida. Wer ist beim Midnight-Launch dabei?",
-                          date: minsAgo(41)),
-            ],
-            "chat-mama": [
-                GGMessage(chatID: "chat-mama", isMine: true,
-                          text: "Hallo Mama, ich melde mich am Wochenende!", date: daysAgo(1)),
-                GGMessage(chatID: "chat-mama", isMine: false,
-                          text: "Hallo Joel, denk bitte an den Anruf am Sonntag.", date: minsAgo(95)),
-                GGMessage(chatID: "chat-mama", isMine: false,
-                          text: "Und vergiss nicht, Brot mitzubringen.", date: minsAgo(94)),
-            ],
-            "chat-stefan": [
-                GGMessage(chatID: "chat-stefan", isMine: false,
-                          text: "Alles klar, bis morgen im Training. Bring die neuen Schuhe mit!",
-                          date: daysAgo(1)),
-            ],
-            "chat-cyberleek": [
-                GGMessage(chatID: "chat-cyberleek", isMine: false,
-                          text: "Neues Video ist in Arbeit — heute Abend gibt es ein Update im Kanal.",
-                          date: minsAgo(180)),
-            ],
-            "chat-jana": [
-                GGMessage(chatID: "chat-jana", isMine: false,
-                          text: "Der Zug hatte nur 5 Minuten Verspätung. Wunder geschehen also doch.",
-                          date: daysAgo(2)),
-            ],
-        ]
-
-        calls = [
-            GGCall(contactID: "stefan", date: minsAgo(150), direction: .incoming, missed: true),
-            GGCall(contactID: "mama", date: daysAgo(1), direction: .incoming, missed: false, durationSec: 184),
-        ]
-
-        // didSet does NOT fire during initialization — persist the
-        // seed explicitly, or the second launch would re-seed and
-        // wipe the user's data.
+        // didSet does NOT fire during initialization — persist
+        // explicitly, or the second launch would re-run this setup
+        // and wipe the user's data.
         persist(contacts, key: Keys.contacts)
         persist(chats, key: Keys.chats)
         persist(messages, key: Keys.messages)
@@ -221,10 +170,11 @@ final class Store: ObservableObject {
     }
 
     func deleteChat(id: String) {
+        // "Gespeichertes" is a system entry (like Telegram's Saved
+        // Messages) — it always stays.
+        guard id != Store.savedChatID else { return }
         chats.removeAll { $0.id == id }
         messages[id] = nil
-        typingChatIDs.remove(id)
-        pendingReplies.remove(id)
         if openChatID == id { openChatID = nil }
     }
 
@@ -249,9 +199,6 @@ final class Store: ObservableObject {
             // Light tap feedback is handled by the view layer; the
             // setting is persisted and honored there.
         }
-        if let chat = chat(id: chatID) {
-            scheduleReplyIfNeeded(for: chat)
-        }
     }
 
     private func appendMessage(_ message: GGMessage) {
@@ -260,69 +207,29 @@ final class Store: ObservableObject {
         messages[message.chatID] = list
     }
 
-    // MARK: Demo auto-replies
+    // MARK: Contacts
 
-    /// A chat partner answers exactly once per burst of user messages,
-    /// after ~1.2 s, with a "schreibt …" indicator in between.
-    /// Saved-messages and channel chats never reply.
-    private func scheduleReplyIfNeeded(for chat: GGChat) {
-        guard !chat.isSavedMessages else { return }
-        guard let contact = chat.contactID.flatMap({ contact(id: $0) }),
-              !contact.isChannel else { return }
-        guard !pendingReplies.contains(chat.id) else { return }
-        pendingReplies.insert(chat.id)
-        typingChatIDs.insert(chat.id)
-        let chatID = chat.id
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
-            typingChatIDs.remove(chatID)
-            pendingReplies.remove(chatID)
-            // The chat may have been deleted in the meantime.
-            guard self.chat(id: chatID) != nil else { return }
-            let reply = self.nextReply(for: chatID)
-            self.appendMessage(GGMessage(chatID: chatID, isMine: false, text: reply, date: Date()))
-            if self.openChatID != chatID,
-               let idx = self.chats.firstIndex(where: { $0.id == chatID }) {
-                self.chats[idx].unread += 1
-            }
+    /// Creates a contact AND its (empty) 1:1 chat — the "Neuer
+    /// Kontakt" flow in the Kontakte tab. Both are persisted via the
+    /// didSet observers; returns the new contact so the caller can
+    /// navigate straight into the chat.
+    @discardableResult
+    func addContact(name: String) -> GGContact {
+        let contact = GGContact(
+            id: "c-\(UUID().uuidString.lowercased())",
+            name: name,
+            status: "GlassGram-Kontakt",
+            colorIndex: contacts.count % 8 // Theme.avatarColors.count
+        )
+        contacts.append(contact)
+        let chatID = "chat-\(contact.id)"
+        if !chats.contains(where: { $0.id == chatID }) {
+            chats.append(GGChat(id: chatID, contactID: contact.id,
+                                title: contact.name, colorIndex: contact.colorIndex))
+            if messages[chatID] == nil { messages[chatID] = [] }
         }
+        return contact
     }
-
-    private func nextReply(for chatID: String) -> String {
-        let pool = Store.replyPools[chatID] ?? Store.genericReplies
-        let theirs = messages(for: chatID).filter { !$0.isMine }.count
-        return pool[theirs % pool.count]
-    }
-
-    private static let genericReplies = [
-        "Alles klar, danke dir!",
-        "Okay, klingt gut.",
-        "Ja, lass uns das so machen.",
-        "Verstanden — ich melde mich später nochmal.",
-    ]
-
-    private static let replyPools: [String: [String]] = [
-        "chat-mama": [
-            "Das ist schön, mein Junge. Pass auf dich auf!",
-            "Gut, dann bis Sonntag. Ich freu mich.",
-            "Alles klar, hab ich mir notiert.",
-        ],
-        "chat-stefan": [
-            "Perfekt, dann sehen wir uns morgen.",
-            "Haha, genau so machen wir das.",
-            "Alles klar, ich bring die Getränke mit.",
-        ],
-        "chat-jana": [
-            "Stimmt, das war wirklich knapp diesmal.",
-            "Okay, dann planen wir das am Wochenende.",
-            "Gute Idee, schreib ich mir auf.",
-        ],
-        "chat-gta": [
-            "Stark, danke für die Info!",
-            "19. November kann kommen.",
-            "Das wird im Kanal sicher auch gleich geteilt.",
-        ],
-    ]
 
     // MARK: Calls
 

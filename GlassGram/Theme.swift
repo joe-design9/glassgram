@@ -24,42 +24,53 @@ enum Theme {
     ]
 }
 
-// MARK: - Depth backdrop (v2.0.0 — why the glass reads as glass)
+// MARK: - Depth backdrop (v2.0.1 — a wallpaper, not empty black)
 //
-// Real Liquid Glass is refraction + blur of whatever sits BEHIND
-// the surface. Over an empty, perfectly flat black screen there is
-// nothing to refract, so tint bumps alone kept reading as matte
-// gray shapes (the user's v1.1.0 verdict: "immer noch kein Liquid
-// Glass"). The backdrop therefore carries a subtle MONOCHROME
-// depth — still black-based, zero color: a faint top light and a
-// whisper of near-black blue-gray depth (#0B0B0F / #101016 family)
-// at the bottom, so every glass edge and bubble always has a faint
-// luminance difference to catch. On top of that, the chrome
-// (tab bar, headers, input bar) FLOATS over scrolling content, so
-// lists and bubbles visibly blur/refract as they pass beneath.
+// Three rejected builds taught the same lesson: Liquid Glass is
+// refraction of whatever sits BEHIND the surface. v1.x floated
+// tinted .regular glass over pure black — nothing to refract, so
+// it read as matte gray plastic (the user's verdict, three times:
+// "immer noch kein Liquid Glass"). v2.0.0 added faint monochrome
+// depth (whites at 0.05–0.075) — on a real device still basically
+// black, still nothing to bend. Telegram's dark mode has the
+// answer: a dark WALLPAPER with real tonal and color variation,
+// so its glass always has something to refract — even in an
+// empty app.
+//
+// v2.0.1 therefore ships a proper dark wallpaper: a deep
+// blue-black base gradient plus two large, soft light fields
+// (accent-blue from the top, a cool teal whisper from the lower
+// right). Still unmistakably "black" as an identity, but every
+// glass surface — tab bar, pills, bubbles — now bends visible
+// light and color, in empty and full screens alike.
 struct DepthBackdrop: View {
     var body: some View {
         ZStack {
-            Color.black
-            // Faint light from the top (about #121214 at its core).
-            RadialGradient(
-                colors: [Color(white: 0.075), .clear],
-                center: .top, startRadius: 0, endRadius: 520
-            )
-            // Near-black depth toward the bottom (#0B0B0F → #101016).
+            // Deep blue-black base (top #0A0F1E → bottom #04050A).
             LinearGradient(
                 colors: [
-                    .clear,
-                    Color(red: 0.043, green: 0.043, blue: 0.059).opacity(0.55),
-                    Color(red: 0.063, green: 0.063, blue: 0.086).opacity(0.8),
+                    Color(red: 0.039, green: 0.059, blue: 0.118),
+                    Color(red: 0.016, green: 0.020, blue: 0.039),
                 ],
-                startPoint: .center, endPoint: .bottom
+                startPoint: .top, endPoint: .bottom
             )
-            // A second, very soft glow low on the screen so the
-            // floating tab bar always sits over a hint of light.
+            // Accent light field from the upper left — the main
+            // thing the floating header/tab glass refracts.
             RadialGradient(
-                colors: [Color(white: 0.05), .clear],
-                center: .bottom, startRadius: 0, endRadius: 420
+                colors: [Theme.accent.opacity(0.20), .clear],
+                center: UnitPoint(x: 0.12, y: 0.02),
+                startRadius: 0, endRadius: 560
+            )
+            // Cool teal depth from the lower right.
+            RadialGradient(
+                colors: [Color(red: 0.10, green: 0.45, blue: 0.50).opacity(0.13), .clear],
+                center: UnitPoint(x: 0.95, y: 0.88),
+                startRadius: 0, endRadius: 520
+            )
+            // A soft neutral lift behind the tab bar zone.
+            RadialGradient(
+                colors: [Color(white: 0.10), .clear],
+                center: .bottom, startRadius: 0, endRadius: 380
             )
         }
         .ignoresSafeArea()
@@ -70,17 +81,15 @@ struct DepthBackdrop: View {
 
 // MARK: - Glass styles
 //
-// Since 1.1.0 the glass is deliberately BRIGHTER: on a pure-black
-// canvas the old tints (0.055–0.07 white) read as flat matte gray.
-// Every glass surface now gets three layers:
-//   1. .glassEffect with a noticeably lighter neutral tint,
-//   2. a specular edge — a 1 pt gradient stroke, bright at the top
-//      edge and fading downward, like light catching real glass,
-//   3. a soft drop shadow so the chrome floats over the black.
-// Since 2.0.0 the chrome additionally FLOATS over scrolling
-// content (see DepthBackdrop) and tappable glass uses the
-// .interactive() variant, grouped in GlassEffectContainers, so
-// the specular response moves and blends like Apple's.
+// v2.0.1 — the .clear reckoning. Every neutral surface used
+// .regular (the FROSTED variant) plus a white tint at 0.13–0.14:
+// two milky layers that read as gray plastic. Real Liquid Glass —
+// Apple's demos, Telegram's bars — is the CLEAR variant: nearly
+// transparent, strong refraction and edge lensing, no milk film.
+// All neutral glass is therefore .clear with NO tint; color lives
+// only in the wallpaper behind it and in the accent-tinted own
+// bubbles / CTA buttons. The specular stroke and float shadow
+// stay on top.
 
 extension View {
     /// Specular top highlight: gradient stroke over a glass shape.
@@ -104,8 +113,7 @@ extension View {
 
     /// Grouped card (Settings-style): one glass surface around content.
     func glassCard(cornerRadius: CGFloat = 22) -> some View {
-        glassEffect(.regular.tint(.white.opacity(0.13)),
-                    in: .rect(cornerRadius: cornerRadius))
+        glassEffect(.clear, in: .rect(cornerRadius: cornerRadius))
             .specularEdge(RoundedRectangle(cornerRadius: cornerRadius))
             .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
     }
@@ -113,9 +121,7 @@ extension View {
     /// Capsule glass — pills, segmented controls, the input bar,
     /// the floating tab bar.
     func glassPill(interactive: Bool = false) -> some View {
-        glassEffect(interactive
-                        ? .regular.tint(.white.opacity(0.14)).interactive()
-                        : .regular.tint(.white.opacity(0.14)),
+        glassEffect(interactive ? .clear.interactive() : .clear,
                     in: .capsule)
             .specularEdge(Capsule())
             .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
@@ -123,9 +129,7 @@ extension View {
 
     /// Round glass button (header actions, call controls).
     func glassCircle(interactive: Bool = true) -> some View {
-        glassEffect(interactive
-                        ? .regular.tint(.white.opacity(0.14)).interactive()
-                        : .regular.tint(.white.opacity(0.14)),
+        glassEffect(interactive ? .clear.interactive() : .clear,
                     in: .circle)
             .specularEdge(Circle())
             .shadow(color: .black.opacity(0.40), radius: 9, x: 0, y: 4)

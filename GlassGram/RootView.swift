@@ -217,7 +217,7 @@ struct GlassTabBar: View {
         // beneath it in the ZStack) and uses the INTERACTIVE
         // glass variant, so it refracts content and answers
         // touches with Apple's specular bounce (v2.0.0).
-        .glassEffect(.regular.tint(.white.opacity(0.14)).interactive(), in: .capsule)
+        .glassEffect(.clear.interactive(), in: .capsule)
         .specularEdge(Capsule())
         .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
     }

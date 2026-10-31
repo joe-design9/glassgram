@@ -90,7 +90,7 @@ private struct GatePrimaryButton: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
         }
-        .glassEffect(.regular.tint(Theme.accent.opacity(0.75)).interactive(), in: .capsule)
+        .glassEffect(.clear.tint(Theme.accent.opacity(0.65)).interactive(), in: .capsule)
         .disabled(busy)
     }
 }

@@ -51,7 +51,7 @@ struct AdminView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
                     }
-                    .glassEffect(.regular.tint(Theme.accent.opacity(0.75)).interactive(), in: .capsule)
+                    .glassEffect(.clear.tint(Theme.accent.opacity(0.65)).interactive(), in: .capsule)
                     .disabled(store.adminBusy)
 
                     if let createError {

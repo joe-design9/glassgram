@@ -38,6 +38,7 @@ jobs:
       - name: Install and capture screens
         run: |
           mkdir -p shots
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false || true
           APP=$(find build-qa/Build/Products -name "GlassGram.app" -type d | head -1)
           echo "App: $APP"
           xcrun simctl install "$UDID" "$APP"
@@ -45,9 +46,13 @@ jobs:
           sleep 5
           xcrun simctl io "$UDID" screenshot shots/chats.png
           xcrun simctl terminate "$UDID" dev.joe.glassgram || true
-          xcrun simctl launch "$UDID" dev.joe.glassgram -UITestMode -UITestScreen chat
+          xcrun simctl launch "$UDID" dev.joe.glassgram -UITestMode -UITestScreen chat -QASendFlow
           sleep 5
           xcrun simctl io "$UDID" screenshot shots/chat.png
+          sleep 6
+          xcrun simctl io "$UDID" screenshot shots/sendflow1.png
+          sleep 5
+          xcrun simctl io "$UDID" screenshot shots/sendflow2.png
           xcrun simctl terminate "$UDID" dev.joe.glassgram || true
           xcrun simctl launch "$UDID" dev.joe.glassgram -UITestMode -UITestScreen contacts
           sleep 5

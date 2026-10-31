@@ -39,7 +39,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
-      - name: Package GlassGram.ipa
+      - name: Package GlassGram-2.0.2.ipa
         run: |
           APP_PATH="build-normal/Build/Products/Release-iphoneos/GlassGram.app"
           if [ ! -d "$APP_PATH" ]; then
@@ -47,11 +47,11 @@ jobs:
             find build-normal -name "*.app" -maxdepth 5
             exit 1
           fi
-          rm -rf Payload GlassGram.ipa
+          rm -rf Payload GlassGram-2.0.2.ipa
           mkdir Payload
           cp -R "$APP_PATH" Payload/
-          zip -qry GlassGram.ipa Payload
-          ls -lh GlassGram.ipa
+          zip -qry GlassGram-2.0.2.ipa Payload
+          ls -lh GlassGram-2.0.2.ipa
 
       - name: Build GlassGram Admin (unsigned)
         run: |
@@ -65,7 +65,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
-      - name: Package GlassGram-Admin.ipa
+      - name: Package GlassGram-Admin-2.0.2.ipa
         run: |
           APP_PATH="build-admin/Build/Products/ReleaseAdmin-iphoneos/GlassGram.app"
           if [ ! -d "$APP_PATH" ]; then
@@ -73,19 +73,19 @@ jobs:
             find build-admin -name "*.app" -maxdepth 5
             exit 1
           fi
-          rm -rf Payload GlassGram-Admin.ipa
+          rm -rf Payload GlassGram-Admin-2.0.2.ipa
           mkdir Payload
           cp -R "$APP_PATH" Payload/
-          zip -qry GlassGram-Admin.ipa Payload
-          ls -lh GlassGram-Admin.ipa
+          zip -qry GlassGram-Admin-2.0.2.ipa Payload
+          ls -lh GlassGram-Admin-2.0.2.ipa
 
       - name: Upload IPAs as workflow artifacts
         uses: actions/upload-artifact@v4
         with:
           name: GlassGram-ipas
           path: |
-            GlassGram.ipa
-            GlassGram-Admin.ipa
+            GlassGram-2.0.2.ipa
+            GlassGram-Admin-2.0.2.ipa
           if-no-files-found: error
 
       - name: Attach IPAs to the GitHub Release
@@ -93,5 +93,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            GlassGram.ipa
-            GlassGram-Admin.ipa
+            GlassGram-2.0.2.ipa
+            GlassGram-Admin-2.0.2.ipa

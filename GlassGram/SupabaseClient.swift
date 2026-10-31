@@ -143,11 +143,12 @@ actor SupabaseClient {
 
     // MARK: Session lifecycle
 
-    /// The stored session, if any (loaded lazily from Keychain).
-    func restoreSession() -> (userID: String)? {
+    /// The stored session's user ID, if any (session loaded lazily
+    /// from Keychain).
+    func restoreSession() -> String? {
         loadSessionIfNeeded()
         guard let session else { return nil }
-        return (userID: session.userID)
+        return session.userID
     }
 
     var hasSession: Bool { restoreSession() != nil }
@@ -211,7 +212,7 @@ actor SupabaseClient {
     // MARK: Profiles
 
     func fetchOwnProfile() async throws -> GGProfile? {
-        guard let uid = restoreSession()?.userID else { throw GGBackendError.sessionExpired }
+        guard let uid = restoreSession() else { throw GGBackendError.sessionExpired }
         let rows = try await restArray(path: "/rest/v1/profiles",
                                        query: [("id", "eq.\(uid)"), ("select", "*")])
         return rows.first.map(parseProfile)
@@ -249,7 +250,7 @@ actor SupabaseClient {
     }
 
     func createProfile(username: String, displayName: String) async throws {
-        guard let uid = restoreSession()?.userID else { throw GGBackendError.sessionExpired }
+        guard let uid = restoreSession() else { throw GGBackendError.sessionExpired }
         _ = try await authorizedRequest(
             path: "/rest/v1/profiles",
             method: "POST",
@@ -263,7 +264,7 @@ actor SupabaseClient {
     /// profile UPDATEs to display_name/username (column security),
     /// and is_admin/activated can never be set from the client.
     func updateDisplayName(_ name: String) async throws -> GGProfile? {
-        guard let uid = restoreSession()?.userID else { throw GGBackendError.sessionExpired }
+        guard let uid = restoreSession() else { throw GGBackendError.sessionExpired }
         let (data, status) = try await authorizedRequest(
             path: "/rest/v1/profiles",
             method: "PATCH",
@@ -307,7 +308,7 @@ actor SupabaseClient {
     /// Admin only: generates a fresh GG code (shared InviteCode
     /// module) and inserts it as a server row.
     func createInviteCode() async throws -> GGInviteCodeRow {
-        guard let uid = restoreSession()?.userID else { throw GGBackendError.sessionExpired }
+        guard let uid = restoreSession() else { throw GGBackendError.sessionExpired }
         let code = InviteCode.generate()
         let (data, status) = try await authorizedRequest(
             path: "/rest/v1/invite_codes",

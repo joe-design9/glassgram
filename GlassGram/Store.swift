@@ -226,12 +226,30 @@ final class Store: ObservableObject {
             GGProfile(id: "55555555-5555-5555-5555-555555555555",
                       username: "jonas.w", displayName: "Jonas Weber",
                       isAdmin: false, activated: true),
+            GGProfile(id: "66666666-6666-6666-6666-666666666666",
+                      username: "emma.s", displayName: "Emma Schneider",
+                      isAdmin: false, activated: true),
+            GGProfile(id: "77777777-7777-7777-7777-777777777777",
+                      username: "lukas.f", displayName: "Lukas Fischer",
+                      isAdmin: false, activated: true),
+            GGProfile(id: "88888888-8888-8888-8888-888888888888",
+                      username: "mia.h", displayName: "Mia Hoffmann",
+                      isAdmin: false, activated: true),
+            GGProfile(id: "99999999-9999-9999-9999-999999999999",
+                      username: "paul.w", displayName: "Paul Wagner",
+                      isAdmin: false, activated: true),
         ]
         partners = samplePartners
 
         var server: [String: [GGMessage]] = [:]
         let lena = Store.chatID(forPartner: samplePartners[0].id)
         server[lena] = [
+            msg(lena, false, "Morgen! Endlich Wochenende in Sicht", minutesAgo(180)),
+            msg(lena, true, "Ja! Noch der Termin gleich, dann ist Ruhe", minutesAgo(178)),
+            msg(lena, false, "Ich hab gestern den Zug nach Hause fast verpasst", minutesAgo(150)),
+            msg(lena, true, "Wieder am Handy gewesen, oder? 😄", minutesAgo(148)),
+            msg(lena, false, "Vielleicht. Nur ein bisschen. Okay, komplett.", minutesAgo(146)),
+            msg(lena, true, "Klassiker. Erzähl weiter", minutesAgo(144)),
             msg(lena, false, "Hey! Hast du die Fotos von gestern gesehen?", minutesAgo(64)),
             msg(lena, true, "Ja, die sind richtig gut geworden", minutesAgo(62)),
             msg(lena, false, "Das dritte ist mein Favorit, das Licht war perfekt", minutesAgo(61)),
@@ -260,6 +278,25 @@ final class Store: ObservableObject {
         server[jonas] = [
             msg(jonas, true, "Spiel am Sonntag steht?", hoursAgo(96)),
             msg(jonas, false, "Steht. Ich bring die Trikots mit", hoursAgo(95)),
+        ]
+        // Extra partners so the QA chat list is long enough for
+        // rows to slide beneath the floating glass tab bar in
+        // the screenshots — the refraction proof.
+        let emma = Store.chatID(forPartner: samplePartners[5].id)
+        server[emma] = [
+            msg(emma, false, "Der Termin steht jetzt fest", hoursAgo(120)),
+        ]
+        let lukas = Store.chatID(forPartner: samplePartners[6].id)
+        server[lukas] = [
+            msg(lukas, true, "Datei ist im Ordner abgelegt", hoursAgo(140)),
+        ]
+        let mia = Store.chatID(forPartner: samplePartners[7].id)
+        server[mia] = [
+            msg(mia, false, "Danke, das hat super geklappt!", hoursAgo(170)),
+        ]
+        let paul = Store.chatID(forPartner: samplePartners[8].id)
+        server[paul] = [
+            msg(paul, false, "Wir telefonieren morgen früh", hoursAgo(200)),
         ]
         serverMessages = server
 

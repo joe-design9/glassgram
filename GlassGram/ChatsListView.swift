@@ -68,14 +68,25 @@ struct ChatsListView: View {
                 }
             }
         }
-        .onChange(of: store.pendingChatID) { _, newValue in
-            guard let chatID = newValue else { return }
-            store.pendingChatID = nil
-            if path.last != chatID {
-                path.append(chatID)
-            }
+        .onAppear { consumePendingChat() }
+        .onChange(of: store.pendingChatID) { _, _ in
+            consumePendingChat()
         }
         .dismissKeyboardOnTap()
+    }
+
+    /// Opens a chat requested through `store.pendingChatID`
+    /// (contact tap in another tab, saved-chat shortcut, QA
+    /// screenshot targeting). Called from onAppear too:
+    /// onChange never fires for a value that was already set
+    /// before this view existed — the Kontakte-first flow and
+    /// the QA seeding both set it up front.
+    private func consumePendingChat() {
+        guard let chatID = store.pendingChatID else { return }
+        store.pendingChatID = nil
+        if path.last != chatID {
+            path.append(chatID)
+        }
     }
 
     // MARK: Header

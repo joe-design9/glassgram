@@ -1,0 +1,71 @@
+name: QA Video
+
+on:
+  workflow_dispatch:
+
+jobs:
+  video:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build QA configuration (Simulator)
+        run: |
+          xcodebuild \
+            -project GlassGram.xcodeproj \
+            -scheme GlassGram \
+            -configuration QA \
+            -sdk iphonesimulator \
+            -derivedDataPath build-qa \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Boot a simulator (iPhone 15 Pro Max)
+        run: |
+          RUNTIME=$(xcrun simctl list runtimes -j | jq -r '[.runtimes[] | select(.isAvailable and (.name | startswith("iOS")))] | last | .identifier')
+          UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '(.devices[$rt] // []) | map(select(.isAvailable and (.name == "iPhone 15 Pro Max"))) | last | .udid // empty')
+          if [ -z "$UDID" ]; then
+            DEVTYPE=$(xcrun simctl list devicetypes -j | jq -r '[.devicetypes[] | select(.name == "iPhone 15 Pro Max")] | last | .identifier // empty')
+            if [ -n "$DEVTYPE" ]; then
+              echo "Creating iPhone 15 Pro Max from type: $DEVTYPE on $RUNTIME"
+              UDID=$(xcrun simctl create "iPhone 15 Pro Max" "$DEVTYPE" "$RUNTIME")
+            fi
+          fi
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices -j | jq -r --arg rt "$RUNTIME" '(.devices[$rt] // []) | map(select(.isAvailable and (.name | startswith("iPhone")))) | last | .udid // empty')
+          fi
+          if [ -z "$UDID" ]; then
+            DEVTYPE=$(xcrun simctl list devicetypes -j | jq -r '[.devicetypes[] | select(.name | test("^iPhone (1[6-9]|2[0-9])"))] | sort_by(.name) | last | .identifier')
+            echo "Creating device from type: $DEVTYPE on $RUNTIME"
+            UDID=$(xcrun simctl create QA-iPhone "$DEVTYPE" "$RUNTIME")
+          fi
+          xcrun simctl list devices -j | jq -r --arg u "$UDID" '[.devices[][] | select(.udid == $u) | .name] | first' | xargs -I{} echo "QA device: {}"
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Install and record demo video
+        run: |
+          mkdir -p video
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false || true
+          APP=$(find build-qa/Build/Products -name "GlassGram.app" -type d | head -1)
+          echo "App: $APP"
+          xcrun simctl uninstall "$UDID" dev.joe.glassgram || true
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl io "$UDID" recordVideo --codec h264 --force video/glassgram-demo.mp4 &
+          VIDPID=$!
+          sleep 2
+          xcrun simctl launch "$UDID" dev.joe.glassgram -UITestMode -QADemoVideo
+          sleep 46
+          kill -INT $VIDPID || true
+          wait $VIDPID || true
+          xcrun simctl terminate "$UDID" dev.joe.glassgram || true
+          ls -la video
+
+      - name: Upload video
+        uses: actions/upload-artifact@v4
+        with:
+          name: glassgram-qa-video
+          path: video/

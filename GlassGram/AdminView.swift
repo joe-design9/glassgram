@@ -161,12 +161,11 @@ struct AdminView: View {
                                 : Color(red: 0.35, green: 0.85, blue: 0.45))
             .padding(.horizontal, 9)
             .padding(.vertical, 3)
-            .background(
+            .glassEffect(.clear.tint(
                 (entry.isUsed
                     ? Color.white
-                    : Color(red: 0.35, green: 0.85, blue: 0.45)).opacity(0.14),
-                in: Capsule()
-            )
+                    : Color(red: 0.35, green: 0.85, blue: 0.45)).opacity(0.22)
+            ), in: .capsule)
     }
 
     private func smallButton(icon: String, label: String,

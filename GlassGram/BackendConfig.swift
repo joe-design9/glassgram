@@ -16,5 +16,5 @@ enum BackendConfig {
     static let endpoint = "https://limxytgpwbluhweykabe.supabase.co"
 
     /// Supabase anon (public) key.
-    static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpbXh5dGdwd2JsdWh3ZXlrYWJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzNTc2OCwiZXhwIjoyMTA4OTcxNzY4fQ.-ce9Jk7VTkvrkmJTrEZPYSCzDrPNgs4uy9SCTRp5mmA"
+    static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpbXh5dGdwd2JsdWh3ZXlrYWJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzOTU3NjgsImV4cCI6MjEwODk3MTc2OH0.-ce9Jk7VTkvrkmJTrEZPYSCzDrPNgs4uy9SCTRp5mmA"
 }

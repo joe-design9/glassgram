@@ -178,7 +178,9 @@ struct ChatsListView: View {
                 .padding(.vertical, 6)
                 .background {
                     if folderFilter == value {
-                        Capsule().fill(.white.opacity(0.22))
+                        Capsule()
+                            .glassEffect(.clear.tint(Theme.accent.opacity(0.30)),
+                                         in: .capsule)
                     }
                 }
         }
@@ -357,7 +359,7 @@ struct ContactPickerSheet: View {
                     Text("Noch keine Chat-Partner. Suche im Kontakte-Tab nach einem Benutzernamen.")
                         .foregroundStyle(Theme.secondaryText)
                         .font(.system(size: 15))
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
                 ForEach(store.contacts) { contact in
@@ -379,12 +381,12 @@ struct ContactPickerSheet: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(Color.black)
+                    .listRowBackground(Color.clear)
                 }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(Color.black)
+            .background { DepthBackdrop() }
             .navigationTitle("Neuer Chat")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

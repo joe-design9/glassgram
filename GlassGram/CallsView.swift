@@ -71,7 +71,9 @@ struct CallsView: View {
                         .padding(.vertical, 7)
                         .background {
                             if filter == option {
-                                Capsule().fill(.white.opacity(0.22))
+                                Capsule()
+                                    .glassEffect(.clear.tint(Theme.accent.opacity(0.30)),
+                                                 in: .capsule)
                             }
                         }
                 }
@@ -201,7 +203,7 @@ struct CallPickerSheet: View {
                     Text("Noch keine Kontakte. Finde zuerst im Kontakte-Tab jemanden über die Benutzernamen-Suche und schreib ihm — dann kannst du ihn hier anrufen.")
                         .foregroundStyle(Theme.secondaryText)
                         .font(.system(size: 15))
-                        .listRowBackground(Color.black)
+                        .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
                 ForEach(store.contacts) { contact in
@@ -225,12 +227,12 @@ struct CallPickerSheet: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(Color.black)
+                    .listRowBackground(Color.clear)
                 }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(Color.black)
+            .background { DepthBackdrop() }
             .navigationTitle("Neuen Anruf starten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

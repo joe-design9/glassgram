@@ -204,7 +204,11 @@ struct GlassTabBar: View {
                     .padding(.vertical, 7)
                     .background {
                         if selected == index {
-                            Capsule().fill(.white.opacity(0.18))
+                            // Glass-on-glass selection (v2.0.2) —
+                            // the flat white-0.18 milk fill is gone.
+                            Capsule()
+                                .glassEffect(.clear.tint(Theme.accent.opacity(0.30)),
+                                             in: .capsule)
                         }
                     }
                     .contentShape(Capsule())

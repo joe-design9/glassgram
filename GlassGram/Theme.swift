@@ -24,7 +24,7 @@ enum Theme {
     ]
 }
 
-// MARK: - Depth backdrop (v2.0.1 — a wallpaper, not empty black)
+// MARK: - Depth backdrop (v2.0.2 — a wallpaper, not empty black)
 //
 // Three rejected builds taught the same lesson: Liquid Glass is
 // refraction of whatever sits BEHIND the surface. v1.x floated
@@ -37,39 +37,48 @@ enum Theme {
 // so its glass always has something to refract — even in an
 // empty app.
 //
-// v2.0.1 therefore ships a proper dark wallpaper: a deep
-// blue-black base gradient plus two large, soft light fields
-// (accent-blue from the top, a cool teal whisper from the lower
-// right). Still unmistakably "black" as an identity, but every
-// glass surface — tab bar, pills, bubbles — now bends visible
-// light and color, in empty and full screens alike.
+// v2.0.1 therefore shipped a proper dark wallpaper — but its
+// light fields were still too dim: behind the gate screens the
+// glass card read as frosted gray (the user's fourth rejection).
+// v2.0.2 strengthens every field (accent 0.20→0.34, teal
+// 0.13→0.20) and adds a third, indigo field at mid-right, so
+// every screen — registration included — has unmistakable
+// color and tonal variation for the glass to refract, while
+// the identity stays deep blue-black.
 struct DepthBackdrop: View {
     var body: some View {
         ZStack {
-            // Deep blue-black base (top #0A0F1E → bottom #04050A).
+            // Deep blue-black base (v2.0.2: lifted top stop).
             LinearGradient(
                 colors: [
-                    Color(red: 0.039, green: 0.059, blue: 0.118),
-                    Color(red: 0.016, green: 0.020, blue: 0.039),
+                    Color(red: 0.055, green: 0.085, blue: 0.190),
+                    Color(red: 0.012, green: 0.016, blue: 0.035),
                 ],
                 startPoint: .top, endPoint: .bottom
             )
             // Accent light field from the upper left — the main
             // thing the floating header/tab glass refracts.
             RadialGradient(
-                colors: [Theme.accent.opacity(0.20), .clear],
+                colors: [Theme.accent.opacity(0.34), .clear],
                 center: UnitPoint(x: 0.12, y: 0.02),
-                startRadius: 0, endRadius: 560
+                startRadius: 0, endRadius: 620
+            )
+            // Indigo depth at mid-right (v2.0.2) — gives the
+            // right-hand glass edges their own color to bend.
+            RadialGradient(
+                colors: [Color(red: 0.36, green: 0.30, blue: 0.85).opacity(0.15), .clear],
+                center: UnitPoint(x: 0.92, y: 0.30),
+                startRadius: 0, endRadius: 480
             )
             // Cool teal depth from the lower right.
             RadialGradient(
-                colors: [Color(red: 0.10, green: 0.45, blue: 0.50).opacity(0.13), .clear],
+                colors: [Color(red: 0.10, green: 0.45, blue: 0.50).opacity(0.20), .clear],
                 center: UnitPoint(x: 0.95, y: 0.88),
-                startRadius: 0, endRadius: 520
+                startRadius: 0, endRadius: 560
             )
             // A soft neutral lift behind the tab bar zone.
             RadialGradient(
-                colors: [Color(white: 0.10), .clear],
+                colors: [Color(white: 0.13), .clear],
                 center: .bottom, startRadius: 0, endRadius: 380
             )
         }

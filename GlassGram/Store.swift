@@ -197,6 +197,19 @@ final class Store: ObservableObject {
     /// mode (bootstrap no-ops because the phase starts at .ready)
     /// and every network entry point below is QA-guarded.
     private func seedQASampleData() {
+        // `-QAEmptyState`: an activated account with NO chats,
+        // contacts or calls — the real state right after a fresh
+        // registration, so QA judges the glass on the empty first
+        // screens the user actually sees (v2.0.2 gate).
+        if ProcessInfo.processInfo.arguments.contains("-QAEmptyState") {
+            let me = GGProfile(id: "00000000-0000-0000-0000-000000000001",
+                               username: "qa", displayName: "QA Tester",
+                               isAdmin: false, activated: true)
+            myProfile = me
+            profileName = me.displayName
+            accountPhase = .ready
+            return
+        }
         let now = Date()
         func minutesAgo(_ m: Double) -> Date { now.addingTimeInterval(-m * 60) }
         func hoursAgo(_ h: Double) -> Date { now.addingTimeInterval(-h * 3600) }
@@ -323,6 +336,10 @@ final class Store: ObservableObject {
             switch qaArgs[idx + 1] {
             case "contacts":
                 selectedTab = 1
+            case "calls":
+                selectedTab = 2
+            case "settings":
+                selectedTab = 3
             case "chat":
                 selectedTab = 0
                 pendingChatID = lena

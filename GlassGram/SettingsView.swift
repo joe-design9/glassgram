@@ -301,7 +301,7 @@ struct SettingsDetailView<Content: View>: View {
                     .padding(.top, 14)
             }
         }
-        .background(Color.black)
+        .background { DepthBackdrop() }
         .toolbar(.hidden, for: .navigationBar)
     }
 }
@@ -442,14 +442,15 @@ struct EditNameSheet: View {
                     .font(.system(size: 17))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+                    .glassEffect(.clear, in: .rect(cornerRadius: 14))
+                    .specularEdge(RoundedRectangle(cornerRadius: 14))
                 Text("Der Name erscheint in deinem Profil und wird auf dem Server gespeichert, damit ihn deine Kontakte sehen.")
                     .font(.system(size: 13.5))
                     .foregroundStyle(Theme.secondaryText)
                 Spacer()
             }
             .padding(20)
-            .background(Color.black)
+            .background { DepthBackdrop() }
             .navigationTitle("Name bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

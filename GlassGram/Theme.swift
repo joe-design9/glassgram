@@ -11,6 +11,15 @@ enum Theme {
     static let secondaryText = Color(white: 0.62)
     static let badgeRed = Color(red: 0.93, green: 0.30, blue: 0.28)
 
+    /// Neutral smoky glass tint - copied 1:1 from the approved
+    /// Muse app (Palette.glassTint, dark variant). In that app
+    /// EVERY neutral glass surface carries this tint; GlassGram's
+    /// panels had NO tint at all, and untinted .regular over a
+    /// dark backdrop renders as thin dark plastic - the last real
+    /// code difference behind the repeated "Fake Glass" verdicts.
+    /// Never ship an untinted neutral glass surface again.
+    static let glassTint = Color(uiColor: UIColor(white: 0.08, alpha: 0.52))
+
     /// Muted avatar colors (deliberately no pink-heavy palette).
     static let avatarColors: [Color] = [
         Color(red: 0.30, green: 0.55, blue: 0.85), // blue
@@ -123,7 +132,7 @@ extension View {
 
     /// Grouped card (Settings-style): one glass surface around content.
     func glassCard(cornerRadius: CGFloat = 22) -> some View {
-        glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        glassEffect(.regular.tint(Theme.glassTint), in: .rect(cornerRadius: cornerRadius))
             .specularEdge(RoundedRectangle(cornerRadius: cornerRadius))
             .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
     }
@@ -131,7 +140,7 @@ extension View {
     /// Capsule glass — pills, segmented controls, the input bar,
     /// the floating tab bar.
     func glassPill(interactive: Bool = false) -> some View {
-        glassEffect(interactive ? .regular.interactive() : .regular,
+        glassEffect(interactive ? .regular.tint(Theme.glassTint).interactive() : .regular.tint(Theme.glassTint),
                     in: .capsule)
             .specularEdge(Capsule())
             .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
@@ -139,7 +148,7 @@ extension View {
 
     /// Round glass button (header actions, call controls).
     func glassCircle(interactive: Bool = true) -> some View {
-        glassEffect(interactive ? .regular.interactive() : .regular,
+        glassEffect(interactive ? .regular.tint(Theme.glassTint).interactive() : .regular.tint(Theme.glassTint),
                     in: .circle)
             .specularEdge(Circle())
             .shadow(color: .black.opacity(0.40), radius: 9, x: 0, y: 4)

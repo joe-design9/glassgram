@@ -38,7 +38,7 @@ private struct GateField: View {
         .padding(.vertical, 12)
         // Real Liquid Glass (v2.0.2) — the flat white-0.07 fill
         // was one of the gray panels the user kept rejecting.
-        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+        .glassEffect(.regular.tint(Theme.glassTint), in: .rect(cornerRadius: 14))
         .specularEdge(RoundedRectangle(cornerRadius: 14))
     }
 }

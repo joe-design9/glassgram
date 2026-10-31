@@ -443,7 +443,7 @@ struct EditNameSheet: View {
                     .font(.system(size: 17))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                    .glassEffect(.regular.tint(Theme.glassTint), in: .rect(cornerRadius: 14))
                     .specularEdge(RoundedRectangle(cornerRadius: 14))
                 Text("Der Name erscheint in deinem Profil und wird auf dem Server gespeichert, damit ihn deine Kontakte sehen.")
                     .font(.system(size: 13.5))

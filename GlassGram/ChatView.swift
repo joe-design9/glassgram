@@ -371,7 +371,7 @@ struct MessageBubble: View {
             .glassEffect(
                 message.isMine
                     ? .regular.tint(Theme.accent.opacity(0.55))
-                    : .regular,
+                    : .regular.tint(Theme.glassTint),
                 in: .rect(cornerRadius: 18)
             )
             .specularEdge(RoundedRectangle(cornerRadius: 18))

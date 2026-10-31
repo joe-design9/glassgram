@@ -193,7 +193,8 @@ actor SupabaseClient {
             url: components.url!,
             method: "POST",
             body: ["refresh_token": current.refreshToken],
-            authorized: false
+            accessToken: nil,
+            extraHeaders: [:]
         )
         guard status == 200 else {
             // Refresh token is dead — the session is unrecoverable.

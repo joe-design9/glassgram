@@ -1,47 +1,54 @@
 import SwiftUI
 
-/// Tab 2 — Kontakte: "Freunde einladen" (share sheet), "Neuer
-/// Kontakt" (creates a contact + its empty 1:1 chat) and the contact
-/// list. Tapping a contact opens (or creates) its 1:1 chat — the
-/// whole row is the tap target, exactly like in the chat list.
+/// Tab 2 — Kontakte (v2.0.0, server-backed):
+///   - the search field queries the SERVER by username
+///     (activated users only, debounced, min. 2 characters) —
+///     tapping a result opens/creates the real 1:1 chat,
+///   - below it, the people I already chat with (partners),
+///   - "Freunde einladen" shares a text that explains the
+///     invite-code step (codes come from an admin).
+/// The local "Neuer Kontakt" dummy flow is gone — contacts are
+/// real accounts now.
 struct ContactsView: View {
     @EnvironmentObject private var store: Store
     @State private var showShare = false
-    @State private var showNewContact = false
     @State private var searchText = ""
 
-    private var visibleContacts: [GGContact] {
-        store.contacts
-            .filter {
-                searchText.isEmpty
-                    || $0.name.localizedCaseInsensitiveContains(searchText)
-            }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    private var isSearching: Bool {
+        Store.normalizedUsername(searchText).count >= 2
+    }
+
+    private var visiblePartners: [GGContact] {
+        store.contacts.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            Text("Kontakte")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.top, 6)
-
-            searchField
+        ZStack(alignment: .top) {
             contactList
+            // Floating glass header + search over the list.
+            VStack(spacing: 10) {
+                Text("Kontakte")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                searchField
+            }
+            .padding(.top, 6)
         }
-        .background(Color.black)
         .dismissKeyboardOnTap()
         .sheet(isPresented: $showShare) {
-            ShareSheet(items: ["Schau dir GlassGram an — der Messenger im Liquid-Glass-Design. Ganz schwarz, ganz Glas, komplett lokal."])
+            ShareSheet(items: ["Lade dir GlassGram herunter — den Messenger im Liquid-Glass-Design. Zum Reinkommen brauchst du einen Einladungscode — schreib mir, ich gebe dir einen."])
                 .presentationBackground(.black)
         }
-        .sheet(isPresented: $showNewContact) {
-            NewContactSheet { name in
-                showNewContact = false
-                let contact = store.addContact(name: name)
-                // Straight into the fresh, empty 1:1 chat.
-                store.openChat(with: contact)
-            }
+        // Debounced server search: .task(id:) cancels and
+        // restarts on every keystroke; the store waits ~350 ms
+        // inside performSearch before it would query — the store
+        // method itself enforces the 2-character minimum.
+        .task(id: searchText) {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else { return }
+            await store.performSearch(searchText)
         }
     }
 
@@ -49,10 +56,15 @@ struct ContactsView: View {
         HStack(spacing: 7) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Theme.secondaryText)
-            TextField("Suchen", text: $searchText)
+            TextField("Benutzername suchen", text: $searchText)
                 .foregroundStyle(.white)
+                .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-            if !searchText.isEmpty {
+            if store.isSearching {
+                ProgressView()
+                    .tint(Theme.secondaryText)
+                    .scaleEffect(0.8)
+            } else if !searchText.isEmpty {
                 Button {
                     searchText = ""
                 } label: {
@@ -70,139 +82,127 @@ struct ContactsView: View {
 
     private var contactList: some View {
         List {
-            Button {
-                showShare = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "person.badge.plus")
-                        .font(.system(size: 19))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 48)
-                    Text("Freunde einladen")
-                        .font(.system(size: 16.5))
-                        .foregroundStyle(Theme.accent)
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .listRowBackground(Color.black)
-            .listRowSeparatorTint(.white.opacity(0.12))
-
-            Button {
-                showNewContact = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "person.crop.circle.badge.plus")
-                        .font(.system(size: 19))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 48)
-                    Text("Neuer Kontakt")
-                        .font(.system(size: 16.5))
-                        .foregroundStyle(Theme.accent)
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .listRowBackground(Color.black)
-            .listRowSeparatorTint(.white.opacity(0.12))
-
-            if visibleContacts.isEmpty {
-                Text(store.contacts.isEmpty && searchText.isEmpty
-                        ? "Noch keine Kontakte. Tippe auf „Neuer Kontakt“, um deinen ersten Kontakt anzulegen."
-                        : "Keine Treffer für „\(searchText)“.")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Theme.secondaryText)
-                    .listRowBackground(Color.black)
-                    .listRowSeparator(.hidden)
+            if isSearching {
+                searchResultsSection
             } else {
-                Section {
-                    ForEach(visibleContacts) { contact in
-                        Button {
-                            // Finds the 1:1 chat or creates it.
-                            store.openChat(with: contact)
-                        } label: {
-                            HStack(spacing: 12) {
-                                AvatarView(title: contact.name, colorIndex: contact.colorIndex, size: 48)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(contact.name)
-                                        .font(.system(size: 16.5))
-                                        .foregroundStyle(.white)
-                                    Text(contact.status)
-                                        .font(.system(size: 13.5))
-                                        .foregroundStyle(Theme.secondaryText)
-                                }
-                                Spacer()
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .listRowBackground(Color.black)
-                        .listRowSeparatorTint(.white.opacity(0.12))
-                        .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
-                    }
-                } header: {
-                    Text("Sortierung: Name")
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(Color(white: 0.45))
-                }
+                inviteRow
+                partnersSection
             }
 
             Color.clear
                 .frame(height: 84)
-                .listRowBackground(Color.black)
+                .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .contentMargins(.top, 108, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
     }
-}
 
-// MARK: - New contact sheet
+    // MARK: Server search results
 
-struct NewContactSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var name = ""
-    let onCreate: (String) -> Void
-
-    private var trimmedName: String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                TextField("Name des Kontakts", text: $name)
-                    .foregroundStyle(.white)
-                    .font(.system(size: 17))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
-                Text("Der Kontakt und ein leerer Chat mit ihm werden auf diesem iPhone angelegt — ganz ohne Server.")
-                    .font(.system(size: 13.5))
+    private var searchResultsSection: some View {
+        Group {
+            if store.searchResults.isEmpty && !store.isSearching {
+                Text(store.connectionOnline
+                        ? "Keine Treffer für „\(Store.normalizedUsername(searchText))“. Der Benutzername muss exakt stimmen — frag die Person nach ihrem @Namen."
+                        : "Keine Verbindung zum Server — Suche gerade nicht möglich.")
+                    .font(.system(size: 15))
                     .foregroundStyle(Theme.secondaryText)
-                Spacer()
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
-            .padding(20)
-            .background(Color.black)
-            .navigationTitle("Neuer Kontakt")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Hinzufügen") {
-                        guard !trimmedName.isEmpty else { return }
-                        onCreate(trimmedName)
+            ForEach(store.searchResults) { profile in
+                Button {
+                    store.openServerChat(with: profile)
+                } label: {
+                    HStack(spacing: 12) {
+                        AvatarView(title: profile.displayName,
+                                   colorIndex: Store.colorIndex(for: profile.username),
+                                   size: 48)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(profile.displayName)
+                                .font(.system(size: 16.5))
+                                .foregroundStyle(.white)
+                            Text("@\(profile.username)")
+                                .font(.system(size: 13.5))
+                                .foregroundStyle(Theme.secondaryText)
+                        }
+                        Spacer()
                     }
-                    .disabled(trimmedName.isEmpty)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .listRowSeparatorTint(.white.opacity(0.12))
+                .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
             }
         }
-        .presentationBackground(.black)
-        .dismissKeyboardOnTap()
+    }
+
+    // MARK: Invite + partners
+
+    private var inviteRow: some View {
+        Button {
+            showShare = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "person.badge.plus")
+                    .font(.system(size: 19))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 48)
+                Text("Freunde einladen")
+                    .font(.system(size: 16.5))
+                    .foregroundStyle(Theme.accent)
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(Color.clear)
+        .listRowSeparatorTint(.white.opacity(0.12))
+    }
+
+    @ViewBuilder
+    private var partnersSection: some View {
+        if visiblePartners.isEmpty {
+            Text("Noch keine Chat-Partner. Suche oben nach einem Benutzernamen, um deine erste Unterhaltung zu starten.")
+                .font(.system(size: 15))
+                .foregroundStyle(Theme.secondaryText)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        } else {
+            Section {
+                ForEach(visiblePartners) { contact in
+                    Button {
+                        // Finds the 1:1 server chat or creates it.
+                        store.openChat(with: contact)
+                    } label: {
+                        HStack(spacing: 12) {
+                            AvatarView(title: contact.name, colorIndex: contact.colorIndex, size: 48)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(contact.name)
+                                    .font(.system(size: 16.5))
+                                    .foregroundStyle(.white)
+                                Text(contact.status)
+                                    .font(.system(size: 13.5))
+                                    .foregroundStyle(Theme.secondaryText)
+                            }
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparatorTint(.white.opacity(0.12))
+                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                }
+            } header: {
+                Text("Deine Chat-Partner")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color(white: 0.45))
+            }
+        }
     }
 }

@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Tab 3 — Anrufe: "Alle | Verpasst" filter, call history, and the
-/// demo call flow (picker → call screen → logged on hang-up).
-/// Everything is local theatre — no real telephony.
+/// Tab 3 — Anrufe: "Alle | Verpasst" filter and the local call
+/// history. In v2.0 Anrufe stay purely local (no server calls):
+/// the picker lists your chat partners, the call screen is an
+/// in-app simulation — no real telephony.
 struct CallsView: View {
     @EnvironmentObject private var store: Store
     @State private var filter: Filter = .alle
@@ -39,7 +40,6 @@ struct CallsView: View {
                     callList
                 }
             }
-            .background(Color.black)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showPicker) {
                 CallPickerSheet { contact in
@@ -121,7 +121,7 @@ struct CallsView: View {
                     } label: {
                         CallRow(call: call, contact: contact)
                     }
-                    .listRowBackground(Color.black)
+                    .listRowBackground(Color.clear)
                     .listRowSeparatorTint(.white.opacity(0.12))
                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                 }
@@ -134,11 +134,11 @@ struct CallsView: View {
                     .font(.system(size: 16.5, weight: .medium))
                     .foregroundStyle(Theme.accent)
             }
-            .listRowBackground(Color.black)
+            .listRowBackground(Color.clear)
 
             Color.clear
                 .frame(height: 84)
-                .listRowBackground(Color.black)
+                .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
@@ -198,7 +198,7 @@ struct CallPickerSheet: View {
         NavigationStack {
             List {
                 if store.contacts.isEmpty {
-                    Text("Noch keine Kontakte. Lege zuerst im Kontakte-Tab einen Kontakt an.")
+                    Text("Noch keine Kontakte. Finde zuerst im Kontakte-Tab jemanden über die Benutzernamen-Suche und schreib ihm — dann kannst du ihn hier anrufen.")
                         .foregroundStyle(Theme.secondaryText)
                         .font(.system(size: 15))
                         .listRowBackground(Color.black)
@@ -243,10 +243,11 @@ struct CallPickerSheet: View {
     }
 }
 
-// MARK: - Demo call screen
+// MARK: - Local call screen
 
-/// Fake call UI: connects after a beat, counts up, red button ends.
-/// The elapsed seconds are reported back and logged by the caller.
+/// In-app call UI (local simulation — no real telephony in v2.0):
+/// connects after a beat, counts up, red button ends. The elapsed
+/// seconds are reported back and logged by the caller.
 struct CallScreen: View {
     @Environment(\.dismiss) private var dismiss
     let contact: GGContact

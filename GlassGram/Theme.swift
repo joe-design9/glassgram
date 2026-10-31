@@ -24,6 +24,50 @@ enum Theme {
     ]
 }
 
+// MARK: - Depth backdrop (v2.0.0 — why the glass reads as glass)
+//
+// Real Liquid Glass is refraction + blur of whatever sits BEHIND
+// the surface. Over an empty, perfectly flat black screen there is
+// nothing to refract, so tint bumps alone kept reading as matte
+// gray shapes (the user's v1.1.0 verdict: "immer noch kein Liquid
+// Glass"). The backdrop therefore carries a subtle MONOCHROME
+// depth — still black-based, zero color: a faint top light and a
+// whisper of near-black blue-gray depth (#0B0B0F / #101016 family)
+// at the bottom, so every glass edge and bubble always has a faint
+// luminance difference to catch. On top of that, the chrome
+// (tab bar, headers, input bar) FLOATS over scrolling content, so
+// lists and bubbles visibly blur/refract as they pass beneath.
+struct DepthBackdrop: View {
+    var body: some View {
+        ZStack {
+            Color.black
+            // Faint light from the top (about #121214 at its core).
+            RadialGradient(
+                colors: [Color(white: 0.075), .clear],
+                center: .top, startRadius: 0, endRadius: 520
+            )
+            // Near-black depth toward the bottom (#0B0B0F → #101016).
+            LinearGradient(
+                colors: [
+                    .clear,
+                    Color(red: 0.043, green: 0.043, blue: 0.059).opacity(0.55),
+                    Color(red: 0.063, green: 0.063, blue: 0.086).opacity(0.8),
+                ],
+                startPoint: .center, endPoint: .bottom
+            )
+            // A second, very soft glow low on the screen so the
+            // floating tab bar always sits over a hint of light.
+            RadialGradient(
+                colors: [Color(white: 0.05), .clear],
+                center: .bottom, startRadius: 0, endRadius: 420
+            )
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Glass styles
 //
 // Since 1.1.0 the glass is deliberately BRIGHTER: on a pure-black
@@ -33,6 +77,10 @@ enum Theme {
 //   2. a specular edge — a 1 pt gradient stroke, bright at the top
 //      edge and fading downward, like light catching real glass,
 //   3. a soft drop shadow so the chrome floats over the black.
+// Since 2.0.0 the chrome additionally FLOATS over scrolling
+// content (see DepthBackdrop) and tappable glass uses the
+// .interactive() variant, grouped in GlassEffectContainers, so
+// the specular response moves and blends like Apple's.
 
 extension View {
     /// Specular top highlight: gradient stroke over a glass shape.

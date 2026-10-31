@@ -1,15 +1,20 @@
 import Foundation
 
-/// Backend configuration — the ONLY place a future server endpoint
-/// will ever live. It is a fixed constant compiled into the app,
-/// never user-editable: there is intentionally NO server/URL/host
-/// field anywhere in the UI (standing user requirement — nobody
-/// wants to type a server address). Signup stays exactly:
-/// display name + invite code, nothing else.
+/// Backend configuration — the ONLY place the server endpoint and
+/// the public anon key live. Both are fixed constants compiled into
+/// the app, never user-editable: there is intentionally NO
+/// server/URL/host field anywhere in the UI (standing user
+/// requirement — nobody wants to type a server address). Signup
+/// stays exactly: display name + username + invite code, nothing
+/// else.
 ///
-/// v1 runs 100% locally and does not use this endpoint at all; the
-/// constant is the single source of truth for the future backend
-/// step, to be set once, in code, when that backend ships.
+/// The anon key is the project's PUBLIC client key — it is meant to
+/// be embedded in the app. All data protection happens server-side
+/// via Row Level Security on every table.
 enum BackendConfig {
-    static let endpoint = URL(string: "https://api.glassgram.app/v1")!
+    /// Supabase project endpoint (fixed).
+    static let endpoint = "https://limxytgpwbluhweykabe.supabase.co"
+
+    /// Supabase anon (public) key.
+    static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpbXh5dGdwd2JsdWh3ZXlrYWJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzNTc2OCwiZXhwIjoyMTA4OTcxNzY4fQ.-ce9Jk7VTkvrkmJTrEZPYSCzDrPNgs4uy9SCTRp5mmA"
 }

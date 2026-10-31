@@ -29,20 +29,32 @@ struct ChatsListView: View {
         }
     }
 
+    /// Height the floating chrome occupies — the list's top
+    /// content margin, so the first row starts below the glass
+    /// while everything still scrolls UNDER it.
+    private var listTopInset: CGFloat {
+        store.chats.contains(where: { $0.folder != nil }) ? 176 : 126
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 10) {
-                header
-                searchField
-                // The folder filter only appears once a chat actually
-                // carries a folder — an empty app shows no pill.
-                if store.chats.contains(where: { $0.folder != nil }) {
-                    filterPill
-                }
+            ZStack(alignment: .top) {
                 chatList
+                // Floating chrome (v2.0.0): header, search and the
+                // folder filter hover OVER the list — rows scroll
+                // beneath their glass and refract in it, like
+                // Telegram's Liquid Glass bars. The folder filter
+                // only appears once a chat actually carries a
+                // folder — an empty app shows no pill.
+                VStack(spacing: 10) {
+                    header
+                    searchField
+                    if store.chats.contains(where: { $0.folder != nil }) {
+                        filterPill
+                    }
+                }
+                .padding(.top, 6)
             }
-            .padding(.top, 6)
-            .background(Color.black)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { chatID in
                 if let chat = store.chat(id: chatID) {
@@ -69,35 +81,40 @@ struct ChatsListView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack {
-            Button {
-                withAnimation { editMode = editMode.isEditing ? .inactive : .active }
-            } label: {
-                Text(editMode.isEditing ? "Fertig" : "Bearbeiten")
-                    .font(.system(size: 15.5))
+        // Grouped glass (v2.0.0): the pill and the round button
+        // share a GlassEffectContainer so their specular
+        // highlights blend like Apple's grouped glass.
+        GlassEffectContainer(spacing: 12) {
+            HStack {
+                Button {
+                    withAnimation { editMode = editMode.isEditing ? .inactive : .active }
+                } label: {
+                    Text(editMode.isEditing ? "Fertig" : "Bearbeiten")
+                        .font(.system(size: 15.5))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                }
+                .glassPill(interactive: true)
+
+                Spacer()
+
+                Text("Chats")
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+
+                Spacer()
+
+                Button {
+                    showContactPicker = true
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.white)
+                        .frame(width: 38, height: 38)
+                }
+                .glassCircle()
             }
-            .glassPill(interactive: true)
-
-            Spacer()
-
-            Text("Chats")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
-
-            Spacer()
-
-            Button {
-                showContactPicker = true
-            } label: {
-                Image(systemName: "square.and.pencil")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: 38, height: 38)
-            }
-            .glassCircle()
         }
         .padding(.horizontal, 16)
     }
@@ -182,7 +199,7 @@ struct ChatsListView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .listRowBackground(Color.black)
+                .listRowBackground(Color.clear)
                 .listRowSeparatorTint(.white.opacity(0.12))
                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
             }
@@ -198,14 +215,14 @@ struct ChatsListView: View {
                         : "Keine Treffer für „\(searchText)“.")
                     .foregroundStyle(Theme.secondaryText)
                     .font(.system(size: 15))
-                    .listRowBackground(Color.black)
+                    .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
 
             // Fresh-install empty state: only "Gespeichertes" exists.
             if !hasRealChats && searchText.isEmpty && folderFilter == nil {
                 chatsEmptyState
-                    .listRowBackground(Color.black)
+                    .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 40, leading: 16, bottom: 6, trailing: 16))
             }
@@ -213,11 +230,12 @@ struct ChatsListView: View {
             // Keeps the last rows clear of the floating tab bar.
             Color.clear
                 .frame(height: 84)
-                .listRowBackground(Color.black)
+                .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .contentMargins(.top, listTopInset, for: .scrollContent)
         .environment(\.editMode, $editMode)
         .scrollDismissesKeyboard(.interactively)
     }
@@ -234,7 +252,7 @@ struct ChatsListView: View {
             Text("Noch keine Chats")
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(.white)
-            Text("Füge einen Kontakt hinzu, um deine erste Unterhaltung zu starten.")
+            Text("Suche im Kontakte-Tab nach einem Benutzernamen, um deine erste Unterhaltung zu starten.")
                 .font(.system(size: 14.5))
                 .foregroundStyle(Theme.secondaryText)
                 .multilineTextAlignment(.center)
@@ -242,7 +260,7 @@ struct ChatsListView: View {
             Button {
                 store.selectedTab = 1 // Kontakte
             } label: {
-                Text("Kontakt hinzufügen")
+                Text("Kontakt suchen")
                     .font(.system(size: 15.5, weight: .medium))
                     .foregroundStyle(Theme.accent)
                     .padding(.horizontal, 18)
@@ -325,7 +343,7 @@ struct ContactPickerSheet: View {
         NavigationStack {
             List {
                 if store.contacts.isEmpty {
-                    Text("Noch keine Kontakte. Lege zuerst im Kontakte-Tab einen Kontakt an.")
+                    Text("Noch keine Chat-Partner. Suche im Kontakte-Tab nach einem Benutzernamen.")
                         .foregroundStyle(Theme.secondaryText)
                         .font(.system(size: 15))
                         .listRowBackground(Color.black)

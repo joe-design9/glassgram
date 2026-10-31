@@ -55,15 +55,6 @@ struct GGSettings: Codable {
     var fontScale: Double = 1.0
 }
 
-/// One invite code managed inside the admin build.
-struct AdminCode: Codable, Identifiable {
-    var id: UUID = UUID()
-    var code: String
-    var createdAt: Date
-    /// "frei" (not handed out yet) or "verteilt" (handed out).
-    var status: String = "frei"
-}
-
 // MARK: - Display helpers
 
 enum TimeFormat {

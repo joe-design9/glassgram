@@ -1,20 +1,63 @@
 import SwiftUI
 
-/// App root: invite gate first, then the four tabs with the floating
-/// glass tab bar from the reference screenshots. All four tab roots
-/// stay alive (opacity-switched) so navigation state survives tab
-/// changes — same pattern as classic Telegram.
+/// App root: the account phase decides what shows —
+///   .checking          → splash while session + profile restore
+///   .needsRegistration → RegistrationView
+///   .needsCode         → CodeEntryView (normal build)
+///   .waitingAdmin      → AdminWaitingView (admin build)
+///   .ready             → the four tabs with the floating glass
+///                        tab bar from the reference screenshots.
+/// All four tab roots stay alive (opacity-switched) so navigation
+/// state survives tab changes — same pattern as classic Telegram.
 struct RootView: View {
     @EnvironmentObject private var store: Store
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
-            if store.gatePassed {
+            // Monochrome depth instead of flat black (v2.0.0):
+            // every glass surface in the app refracts this.
+            DepthBackdrop()
+            switch store.accountPhase {
+            case .checking:
+                checkingView
+            case .needsRegistration:
+                RegistrationView()
+            case .needsCode:
+                CodeEntryView()
+            case .waitingAdmin:
+                AdminWaitingView()
+            case .ready:
                 mainTabs
-            } else {
-                WelcomeGateView()
             }
+        }
+        .task {
+            await store.bootstrap()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await store.appBecameActive() }
+            }
+        }
+    }
+
+    private var checkingView: some View {
+        VStack(spacing: 20) {
+            ZStack {
+                Circle()
+                    .fill(Theme.accent)
+                    .frame(width: 92, height: 92)
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.white)
+                    .rotationEffect(.degrees(18))
+            }
+            .glassCircle(interactive: false)
+            ProgressView()
+                .tint(.white)
+            Text("Verbinde …")
+                .font(.system(size: 15))
+                .foregroundStyle(Theme.secondaryText)
         }
     }
 
@@ -37,8 +80,45 @@ struct RootView: View {
                     .padding(.bottom, 10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+
+            statusBanner
         }
         .animation(.easeInOut(duration: 0.22), value: store.openChatID)
+    }
+
+    /// Connection state + transient messages, floating at the top:
+    /// a persistent "Keine Verbindung zum Server" pill while the
+    /// backend is unreachable, otherwise the auto-expiring banner.
+    @ViewBuilder
+    private var statusBanner: some View {
+        if !store.connectionOnline {
+            bannerPill(icon: "wifi.slash", text: "Keine Verbindung zum Server")
+        } else if let text = store.bannerText {
+            bannerPill(icon: "exclamationmark.circle.fill", text: text)
+        }
+    }
+
+    private func bannerPill(icon: String, text: String) -> some View {
+        VStack {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(text)
+                    .font(.system(size: 13.5, weight: .medium))
+                    .lineLimit(2)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .glassPill()
+            .padding(.top, 8)
+            Spacer()
+        }
+        .padding(.horizontal, 30)
+        .allowsHitTesting(false)
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .animation(.easeInOut(duration: 0.25), value: store.connectionOnline)
+        .animation(.easeInOut(duration: 0.25), value: store.bannerText)
     }
 
     /// Extremely subtle monochrome radial sheen behind the tab bar
@@ -133,114 +213,12 @@ struct GlassTabBar: View {
             }
         }
         .padding(5)
-        .glassPill()
-    }
-}
-
-// MARK: - Welcome / invite gate
-
-/// First-launch gate (NORMAL build only): display name + invite code.
-/// Valid code → the gate opens permanently. Validation is fully
-/// offline via the shared algorithm in InviteCode.swift.
-/// The admin build never shows this view — Store opens its gate
-/// unconditionally (see the ADMIN_BUILD block in Store.init).
-struct WelcomeGateView: View {
-    @EnvironmentObject private var store: Store
-    @State private var name: String = ""
-    @State private var code: String = ""
-    @State private var error: String?
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 22) {
-                Spacer(minLength: 30)
-
-                ZStack {
-                    Circle()
-                        .fill(Theme.accent)
-                        .frame(width: 92, height: 92)
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.white)
-                        .rotationEffect(.degrees(18))
-                }
-                .glassCircle(interactive: false)
-
-                VStack(spacing: 8) {
-                    Text("Willkommen bei GlassGram")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundStyle(.white)
-                    Text("Der Messenger im Liquid-Glass-Design.\nAlles bleibt lokal auf diesem iPhone.")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Theme.secondaryText)
-                        .multilineTextAlignment(.center)
-                }
-
-                VStack(spacing: 14) {
-                    field(icon: "person.fill", placeholder: "Anzeigename", text: $name)
-                    field(icon: "key.fill", placeholder: "Einladungscode · GG-______-______", text: $code, codeStyle: true)
-
-                    if let error {
-                        Text(error)
-                            .font(.system(size: 13.5))
-                            .foregroundStyle(Theme.badgeRed)
-                            .multilineTextAlignment(.center)
-                    }
-
-                    Button {
-                        if store.passGate(name: name, code: code) {
-                            error = nil
-                        } else {
-                            error = "Dieser Code ist ungültig. Prüfe die Schreibweise — der Code hat die Form GG-XXXXXX-XXXXXX."
-                        }
-                    } label: {
-                        Text("Los geht's")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                    }
-                    .glassEffect(.regular.tint(Theme.accent.opacity(0.75)).interactive(), in: .capsule)
-                }
-                .padding(20)
-                .glassCard()
-
-                if BuildVariant.isAdmin {
-                    Text("Admin-Build: Neue Codes erstellst du später in den Einstellungen unter „Admin“.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.secondaryText)
-                        .multilineTextAlignment(.center)
-                }
-
-                Text("Kein Konto, kein Server — der Code wird nur auf dem Gerät geprüft.")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Color(white: 0.45))
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 30)
-        }
-        .scrollDismissesKeyboard(.interactively)
-        .dismissKeyboardOnTap()
-        .onAppear {
-            if name.isEmpty { name = store.profileName }
-        }
-    }
-
-    private func field(icon: String, placeholder: String,
-                       text: Binding<String>, codeStyle: Bool = false) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .foregroundStyle(Theme.secondaryText)
-                .frame(width: 20)
-            TextField(placeholder, text: text)
-                .foregroundStyle(.white)
-                .font(.system(size: 16, design: codeStyle ? .monospaced : .default))
-                .textInputAutocapitalization(codeStyle ? .characters : .words)
-                .autocorrectionDisabled(codeStyle)
-                .submitLabel(.done)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+        // The bar FLOATS over the scrolling lists (they pass
+        // beneath it in the ZStack) and uses the INTERACTIVE
+        // glass variant, so it refracts content and answers
+        // touches with Apple's specular bounce (v2.0.0).
+        .glassEffect(.regular.tint(.white.opacity(0.14)).interactive(), in: .capsule)
+        .specularEdge(Capsule())
+        .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
     }
 }

@@ -1,14 +1,18 @@
 # GlassGram
 
-Ein Telegram-artiger Messenger im **Liquid-Glass-Design**: rein schwarze
-Oberfläche, echtes `.glassEffect` überall (keine Material-Fallbacks),
-Telegram-Blau als Akzent, schwebende Glas-Tab-Bar. Tabs: **Chats ·
-Kontakte · Anrufe · Einstellungen**.
+Ein Telegram-artiger Messenger im **Liquid-Glass-Design**: schwarze
+Oberfläche mit dezentem Tiefen-Hintergrund (monochrom), echtes
+`.glassEffect` überall (keine Material-Fallbacks), Telegram-Blau als
+Akzent, schwebende Glas-Tab-Bar, die über dem scrollenden Inhalt
+liegt. Tabs: **Chats · Kontakte · Anrufe · Einstellungen**.
 
-v1 läuft **komplett lokal** auf dem iPhone und startet **leer wie ein
-echter Messenger** — keine Demo-Chats, keine Fake-Kontakte; Kontakte
-legt der Nutzer selbst an. Anrufe sind eine lokale Demo ohne echte
-Telefonie. Alle Daten liegen als JSON in UserDefaults.
+Seit **v2.0.0** ist GlassGram ein echter Client für das fest
+eingebaute Supabase-Backend: Konten (anonyme Anmeldung + Profil),
+1:1-Chats, Kontaktsuche per Benutzername und Invite-Codes laufen
+über den Server, Aktualisierung per Polling (Chatliste ~5 s,
+offener Chat ~2 s). **„Gespeichertes“ bleibt rein lokal** und
+verlässt das Gerät nie; auch die Anrufliste ist lokal (Anrufe sind
+eine In-App-Simulation ohne echte Telefonie und ohne Server).
 
 ## Zwei Versionen — ein Code
 
@@ -16,42 +20,46 @@ Telefonie. Alle Daten liegen als JSON in UserDefaults.
 |---|---|---|---|
 | Normal | `GlassGram` | `Release` | `GlassGram.ipa` |
 | Admin | `GlassGramAdmin` | `ReleaseAdmin` (setzt `ADMIN_BUILD`) | `GlassGram-Admin.ipa` |
+| QA (nur Simulator-Screenshots, nie Release) | `GlassGram` | `QA` (Klon von Debug, setzt `QA`) | — |
 
 Es sind zwei echte, getrennt installierbare Apps: Normal =
 `dev.joe.glassgram`, Admin = `dev.joe.glassgram.admin` (Anzeige:
-„GlassGram Admin"). Die Admin-Version kennt **keine Code-Sperre**
-(der Besitzer kommt direkt hinein) und enthält zusätzlich in den
-Einstellungen den Bereich **„Admin · Invite-Codes"**.
+„GlassGram Admin“).
 
-## Einladungscodes (offline)
+## Registrierung & Einladungscodes (Server)
 
-Vor der ersten Nutzung fragt die App **Anzeigename + Einladungscode**.
-Geprüft wird offline über ein gemeinsames Verfahren
-(`GlassGram/InviteCode.swift`), das beide Builds teilen — ein Code
-aus der Admin-App funktioniert garantiert in der Normal-Version.
-
-- **Format:** `GG-XXXXXX-XXXXXX`
-  (Gruppe 1 = Payload-Zeichen 1–6, Gruppe 2 = Payload 7–10 + 2 Prüfzeichen)
-- **Alphabet (30 Zeichen, ohne Verwechsler wie 0/1/I/L/O/U):**
-  `23456789ABCDEFGHJKMNPQRSTVWXYZ`
-- **Prüfsumme:** FNV-1a (32-bit) über `Salt + Payload`,
-  Prüfzeichen 1 = `Alphabet[Hash % 30]`,
-  Prüfzeichen 2 = `Alphabet[(Hash / 30) % 30]`.
-
-Die Admin-Version startet mit **3 vorab erzeugten gültigen Codes**
-(deterministisch aus festen Seeds, gleiches Verfahren), damit sofort
-einer weitergegeben werden kann. Weitere Codes erzeugt der Admin in
-der App (erstellen, kopieren, teilen, als „verteilt" markieren,
-löschen).
+- **Normal:** Anzeigename + Benutzername + Invite-Code →
+  anonyme Anmeldung → Profil anlegen → Code per RPC einlösen.
+  Ungültiger/benutzter Code = klare Fehlermeldung, der Code kann
+  danach erneut eingegeben werden.
+- **Admin:** nur Anzeigename + Benutzername (Formular mit
+  „joel“/„Joel“ vorbefüllt). Danach Wartestatus, bis das Konto
+  serverseitig als Admin freigeschaltet wird.
+- **Admin-Bereich** (Einstellungen → „Admin · Invite-Codes“, nur
+  Admin-Build + Admin-Konto): Codes werden **auf dem Server**
+  erstellt und dort eingelöst — die Liste zeigt den echten Stand
+  (frei / benutzt + von wem). Format `GG-XXXXXX-XXXXXX` mit
+  FNV-1a-Prüfsumme (`GlassGram/InviteCode.swift`); die App prüft
+  das Format lokal vor, die Wahrheit liegt auf dem Server.
 
 ## Kein Server-Feld — bewusst
 
-Nutzer müssen **niemals** eine Server-Adresse eingeben. Es gibt
+Nutzer geben **niemals** eine Server-Adresse ein. Es gibt
 nirgendwo in der App ein URL-/Host-Feld (auch kein verstecktes).
-Für den späteren Backend-Schritt ist der Endpunkt **eine einzige
-fest einkompilierte Konstante** (`GlassGram/BackendConfig.swift` →
-`BackendConfig.endpoint`) — nie nutzer-editierbar. Der Signup bleibt
-immer: Anzeigename + Einladungscode, sonst nichts.
+Der Endpunkt ist **eine einzige fest einkompilierte Konstante**
+(`GlassGram/BackendConfig.swift` → `BackendConfig.endpoint`,
+dazu der öffentliche Anon-Key des Projekts — die Daten schützt
+Row Level Security auf dem Server).
+
+## QA-Screenshots (Liquid Glass visuell prüfen)
+
+Siehe **QA.md**: Die `QA`-Konfiguration + Startargument
+`-UITestMode` zeigt die echte Hauptoberfläche mit lokalen
+Beispieldaten — ganz ohne Konto/Server —, damit die Glasflächen
+(Tab-Bar, Header, Bubbles über scrollendem Inhalt) im Simulator
+fotografiert und geprüft werden können, bevor irgendetwas
+erscheint. In Release/ReleaseAdmin ist der Modus nicht
+erreichbar (doppelt abgesichert: Compilation Condition + Argument).
 
 ## Bauen
 

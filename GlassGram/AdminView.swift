@@ -1,20 +1,23 @@
 import SwiftUI
 import UIKit
 
-/// ADMIN BUILD ONLY — Invite-Code-Verwaltung.
-/// Codes are generated with the shared offline algorithm
-/// (InviteCode.swift), so every code created here validates in the
-/// normal build's welcome gate. Codes live only on this device.
+/// ADMIN BUILD ONLY — Invite-Code-Verwaltung (Server).
+///
+/// Since v2.0.0 the codes live on the backend (public.invite_codes):
+/// creating inserts a row, redeeming marks it used_by server-side,
+/// and this list is the server truth (refreshed on appear and after
+/// every change). There is deliberately no delete/toggle here — a
+/// code's state is whatever the server says it is.
 struct AdminView: View {
     @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
     @State private var shareItem: ShareItem?
-    @State private var copiedID: UUID?
+    @State private var copiedCode: String?
+    @State private var createError: String?
 
     private struct ShareItem: Identifiable {
         let id = UUID()
         let text: String
-        let codeID: UUID
     }
 
     var body: some View {
@@ -23,7 +26,7 @@ struct AdminView: View {
 
             ScrollView {
                 VStack(spacing: 14) {
-                    Text("Codes funktionieren offline in der normalen GlassGram-Version — die App prüft nur die eingebaute Prüfsumme. Kein Server nötig.")
+                    Text("Codes werden auf dem Server erstellt und dort eingelöst — was hier steht, ist der echte Stand. Ein benutzter Code kann nicht noch einmal verwendet werden.")
                         .font(.system(size: 13.5))
                         .foregroundStyle(Theme.secondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -31,23 +34,40 @@ struct AdminView: View {
                         .glassCard()
 
                     Button {
-                        store.createAdminCode()
+                        Task {
+                            createError = await store.createServerCode()
+                        }
                     } label: {
-                        Label("Code erstellen", systemImage: "plus.circle.fill")
-                            .font(.system(size: 16.5, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 13)
+                        HStack(spacing: 8) {
+                            if store.adminBusy {
+                                ProgressView().tint(.white)
+                            } else {
+                                Image(systemName: "plus.circle.fill")
+                            }
+                            Text("Code erstellen")
+                        }
+                        .font(.system(size: 16.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
                     }
                     .glassEffect(.regular.tint(Theme.accent.opacity(0.75)).interactive(), in: .capsule)
+                    .disabled(store.adminBusy)
 
-                    if store.adminCodes.isEmpty {
-                        Text("Noch keine Codes. Erstelle den ersten mit dem Button oben.")
+                    if let createError {
+                        Text(createError)
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(Theme.badgeRed)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if store.serverCodes.isEmpty {
+                        Text("Noch keine Codes auf dem Server. Erstelle den ersten mit dem Button oben.")
                             .font(.system(size: 14.5))
                             .foregroundStyle(Theme.secondaryText)
                             .padding(.top, 10)
                     } else {
-                        ForEach(store.adminCodes) { entry in
+                        ForEach(store.serverCodes) { entry in
                             codeCard(entry)
                         }
                     }
@@ -58,15 +78,13 @@ struct AdminView: View {
                 .padding(.top, 12)
             }
         }
-        .background(Color.black)
         .toolbar(.hidden, for: .navigationBar)
+        .task {
+            await store.refreshAdminCodes()
+        }
         .sheet(item: $shareItem) { item in
             ShareSheet(items: [item.text])
                 .presentationBackground(.black)
-                .onDisappear {
-                    // A completed share counts as handed out.
-                    store.markAdminCodeShared(id: item.codeID)
-                }
         }
     }
 
@@ -86,13 +104,20 @@ struct AdminView: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
             Spacer()
-            Color.clear.frame(width: 34, height: 38)
+            Button {
+                Task { await store.refreshAdminCodes() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 34, height: 38)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.top, 6)
     }
 
-    private func codeCard(_ entry: AdminCode) -> some View {
+    private func codeCard(_ entry: GGInviteCodeRow) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 Text(entry.code)
@@ -106,24 +131,21 @@ struct AdminView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.secondaryText)
 
+            if let usedBy = entry.usedBy {
+                Text("Eingelöst von \(store.codeUsedByNames[usedBy] ?? "einem Nutzer")")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.secondaryText)
+            }
+
             HStack(spacing: 10) {
-                smallButton(icon: "doc.on.doc", label: copiedID == entry.id ? "Kopiert!" : "Kopieren") {
+                smallButton(icon: "doc.on.doc", label: copiedCode == entry.code ? "Kopiert!" : "Kopieren") {
                     UIPasteboard.general.string = entry.code
-                    copiedID = entry.id
-                    store.markAdminCodeShared(id: entry.id)
+                    copiedCode = entry.code
                 }
                 smallButton(icon: "square.and.arrow.up", label: "Teilen") {
                     shareItem = ShareItem(
-                        text: "Dein GlassGram-Einladungscode: \(entry.code) — einfach beim Start in der App eingeben.",
-                        codeID: entry.id
+                        text: "Dein GlassGram-Einladungscode: \(entry.code) — einfach bei der Registrierung in der App eingeben."
                     )
-                }
-                smallButton(icon: entry.status == "frei" ? "checkmark.circle" : "arrow.uturn.backward.circle",
-                            label: entry.status == "frei" ? "Verteilt" : "Frei") {
-                    store.toggleAdminCodeStatus(id: entry.id)
-                }
-                smallButton(icon: "trash", label: "Löschen", danger: true) {
-                    store.deleteAdminCode(id: entry.id)
                 }
             }
         }
@@ -131,24 +153,23 @@ struct AdminView: View {
         .glassCard(cornerRadius: 18)
     }
 
-    private func statusChip(_ entry: AdminCode) -> some View {
-        Text(entry.status == "frei" ? "frei" : "verteilt")
+    private func statusChip(_ entry: GGInviteCodeRow) -> some View {
+        Text(entry.isUsed ? "benutzt" : "frei")
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(entry.status == "frei"
-                                ? Color(red: 0.35, green: 0.85, blue: 0.45)
-                                : Theme.secondaryText)
+            .foregroundStyle(entry.isUsed
+                                ? Theme.secondaryText
+                                : Color(red: 0.35, green: 0.85, blue: 0.45))
             .padding(.horizontal, 9)
             .padding(.vertical, 3)
             .background(
-                (entry.status == "frei"
-                    ? Color(red: 0.35, green: 0.85, blue: 0.45)
-                    : Color.white).opacity(0.14),
+                (entry.isUsed
+                    ? Color.white
+                    : Color(red: 0.35, green: 0.85, blue: 0.45)).opacity(0.14),
                 in: Capsule()
             )
     }
 
     private func smallButton(icon: String, label: String,
-                             danger: Bool = false,
                              action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 4) {
@@ -158,7 +179,7 @@ struct AdminView: View {
                     .font(.system(size: 11))
                     .lineLimit(1)
             }
-            .foregroundStyle(danger ? Theme.badgeRed : .white)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
         }

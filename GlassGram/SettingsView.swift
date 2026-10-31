@@ -3,8 +3,9 @@ import SwiftUI
 /// Tab 4 — Einstellungen: profile header + grouped glass cards with
 /// colored icon tiles, modeled on the reference screenshots.
 /// Functional rows: Gespeichertes, Letzte Anrufe, Mitteilungen
-/// (toggles), Darstellung (font-size slider), name editing, and —
-/// admin build only — the invite-code manager.
+/// (toggles), Darstellung (font-size slider), name editing (saved
+/// to the server profile), and — for admin accounts — the
+/// server invite-code manager.
 struct SettingsView: View {
     @EnvironmentObject private var store: Store
 
@@ -27,10 +28,10 @@ struct SettingsView: View {
                     profileCard
                     groupCard1
                     groupCard2
-                    if BuildVariant.isAdmin {
+                    if BuildVariant.isAdmin && store.myProfile?.isAdmin == true {
                         adminCard
                     }
-                    Text("GlassGram 1.1.0 — läuft komplett lokal auf diesem iPhone.")
+                    Text("GlassGram 2.0.0 — Chats laufen über den GlassGram-Server. Gespeichertes bleibt nur auf diesem iPhone.")
                         .font(.system(size: 12.5))
                         .foregroundStyle(Color(white: 0.42))
                         .multilineTextAlignment(.center)
@@ -40,7 +41,6 @@ struct SettingsView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
             }
-            .background(Color.black)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { route in
                 destination(for: route)
@@ -63,7 +63,7 @@ struct SettingsView: View {
             Text(store.profileName)
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(.white)
-            Text("@glassgram · online")
+            Text("@\(store.myProfile?.username ?? "glassgram") · online")
                 .font(.system(size: 14.5))
                 .foregroundStyle(Theme.secondaryText)
             EditNameButton()
@@ -141,10 +141,13 @@ struct SettingsView: View {
             NavigationLink(value: Route.admin) {
                 SettingsRow(icon: "key.fill", tile: .orange,
                             title: "Admin · Invite-Codes",
-                            value: "\(store.adminCodes.count)", chevron: true)
+                            value: "\(store.serverCodes.count)", chevron: true)
             }
         }
         .glassCard()
+        .task {
+            await store.refreshAdminCodes()
+        }
     }
 
     private var divider: some View {
@@ -166,16 +169,16 @@ struct SettingsView: View {
         case .privacy:
             SettingsDetailView(title: "Privatsphäre und Sicherheit") {
                 InfoLines(lines: [
-                    "GlassGram speichert alles nur lokal auf diesem iPhone.",
-                    "Es gibt kein Konto und keinen Server — nichts verlässt das Gerät.",
-                    "Demo-Version — läuft komplett lokal auf diesem iPhone.",
+                    "Dein Konto, deine Chats und deine Nachrichten liegen auf dem GlassGram-Server — nur so kannst du mit anderen schreiben.",
+                    "„Gespeichertes“ ist die Ausnahme: Diese Nachrichten bleiben nur lokal auf diesem iPhone und verlassen das Gerät nie.",
+                    "Invite-Codes steuern, wer sich registrieren darf — ohne Code kein Konto.",
                 ])
             }
         case .storage:
             SettingsDetailView(title: "Daten und Speicher") {
                 InfoLines(lines: [
-                    "Chats, Nachrichten, Anrufe und Einstellungen liegen als lokale Daten auf dem Gerät.",
-                    "Demo-Version — läuft komplett lokal auf diesem iPhone.",
+                    "Nachrichten und Chats werden auf dem Server gespeichert und auf diesem Gerät zwischengespeichert, damit die App schnell startet.",
+                    "Gespeichertes, Einstellungen und die Anrufliste liegen nur lokal auf dem Gerät.",
                 ])
             }
         case .appearance:
@@ -185,15 +188,14 @@ struct SettingsView: View {
         case .devices:
             SettingsDetailView(title: "Geräte") {
                 InfoLines(lines: [
-                    "Dieses iPhone — aktiv, GlassGram 1.1.0.",
-                    "Demo-Version — läuft komplett lokal auf diesem iPhone.",
+                    "Dieses iPhone — aktiv, GlassGram 2.0.0.",
+                    "Deine Sitzung bleibt sicher im Schlüsselbund dieses Geräts gespeichert.",
                 ])
             }
         case .folders:
             SettingsDetailView(title: "Ordner") {
                 InfoLines(lines: [
                     "Sobald Chats einem Ordner zugeordnet sind, erscheint der Ordner als Filter in der Chatliste.",
-                    "Demo-Version — läuft komplett lokal auf diesem iPhone.",
                 ])
             }
         case .language:
@@ -441,7 +443,7 @@ struct EditNameSheet: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
-                Text("Der Name erscheint in deinem Profil. Er wird nur lokal gespeichert.")
+                Text("Der Name erscheint in deinem Profil und wird auf dem Server gespeichert, damit ihn deine Kontakte sehen.")
                     .font(.system(size: 13.5))
                     .foregroundStyle(Theme.secondaryText)
                 Spacer()
@@ -457,7 +459,9 @@ struct EditNameSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Speichern") {
                         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !trimmed.isEmpty { store.profileName = trimmed }
+                        if !trimmed.isEmpty {
+                            Task { await store.updateDisplayName(trimmed) }
+                        }
                         dismiss()
                     }
                 }

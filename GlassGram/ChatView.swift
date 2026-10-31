@@ -1,10 +1,15 @@
 import SwiftUI
 import UIKit
 
-/// The conversation screen: Telegram-style bubbles on black, glass
-/// input bar.
-/// Keyboard: interactive scroll-dismiss + tap-outside guard — and the
-/// field deliberately re-focuses after sending so chatting can go on.
+/// The conversation screen: Telegram-style bubbles over the
+/// monochrome depth backdrop. Since v2.0.0 the header and the
+/// input bar FLOAT as glass over the message scroll view — bubbles
+/// pass beneath them and refract in the glass (real Liquid Glass
+/// needs content behind the surface; stacked bars over flat black
+/// read as matte shapes).
+/// Keyboard: interactive scroll-dismiss + tap-outside guard — and
+/// the field deliberately re-focuses after sending so chatting
+/// can go on.
 struct ChatView: View {
     @EnvironmentObject private var store: Store
     @Environment(\.dismiss) private var dismiss
@@ -19,25 +24,38 @@ struct ChatView: View {
         chat.contactID.flatMap { store.contact(id: $0) }
     }
 
+    private var isServerChat: Bool { store.isServerChat(chat.id) }
+
     private var statusText: String {
         if chat.isSavedMessages { return "Nachrichten an dich selbst" }
         return contact?.status ?? ""
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider().overlay(.white.opacity(0.10))
+        ZStack {
             messageList
-            if showAttachTray { attachTray }
-            inputBar
+
+            // Floating glass header.
+            VStack(spacing: 0) {
+                header
+                Spacer()
+            }
+
+            // Floating glass input bar (tray rides above it).
+            VStack(spacing: 8) {
+                Spacer()
+                if showAttachTray { attachTray }
+                inputBar
+            }
         }
-        .background(Color.black)
         .toolbar(.hidden, for: .navigationBar)
         .dismissKeyboardOnTap()
         .onAppear {
             store.openChatID = chat.id
             store.markRead(chatID: chat.id)
+            if isServerChat {
+                Task { await store.refreshConversation(chatID: chat.id) }
+            }
         }
         .onDisappear {
             if store.openChatID == chat.id { store.openChatID = nil }
@@ -50,55 +68,60 @@ struct ChatView: View {
         }
     }
 
-    // MARK: Header
+    // MARK: Header (floating glass capsule)
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 34, height: 38)
-            }
-
-            if chat.isSavedMessages {
-                SavedAvatarView(size: 38)
-            } else {
-                AvatarView(title: chat.title, colorIndex: chat.colorIndex, size: 38)
-            }
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(chat.title)
-                    .font(.system(size: 16.5, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                Text(statusText)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.secondaryText)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-
-            if let contact, !chat.isSavedMessages {
+        GlassEffectContainer(spacing: 10) {
+            HStack(spacing: 10) {
                 Button {
-                    callContact = contact
+                    dismiss()
                 } label: {
-                    Image(systemName: "phone.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.white)
-                        .frame(width: 38, height: 38)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 34, height: 38)
                 }
-                .glassCircle()
+
+                if chat.isSavedMessages {
+                    SavedAvatarView(size: 38)
+                } else {
+                    AvatarView(title: chat.title, colorIndex: chat.colorIndex, size: 38)
+                }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(chat.title)
+                        .font(.system(size: 16.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(statusText)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.secondaryText)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                if let contact, !chat.isSavedMessages {
+                    Button {
+                        callContact = contact
+                    } label: {
+                        Image(systemName: "phone.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.white)
+                            .frame(width: 38, height: 38)
+                    }
+                    .glassCircle()
+                }
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .glassPill()
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
     }
 
-    // MARK: Messages
+    // MARK: Messages (full-frame — they scroll UNDER the glass)
 
     private var messageList: some View {
         ScrollViewReader { proxy in
@@ -111,7 +134,11 @@ struct ChatView: View {
                     Color.clear.frame(height: 4).id("bottom")
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                // Clearance for the floating header / input bar —
+                // layout insets only; the scroll region itself is
+                // full-frame, so bubbles pass beneath the glass.
+                .padding(.top, 66)
+                .padding(.bottom, 84)
             }
             .scrollDismissesKeyboard(.interactively)
             .onAppear {
@@ -125,7 +152,8 @@ struct ChatView: View {
         }
     }
 
-    // MARK: Attachment tray (demo, but functional)
+    // MARK: Attachment tray (Gespeichertes only — local demo actions
+    // must never inject fake content into a real server chat)
 
     private var attachTray: some View {
         HStack(spacing: 12) {
@@ -134,7 +162,6 @@ struct ChatView: View {
             attachButton(icon: "doc.fill", label: "Datei", text: "Datei-Anhang (Demo)")
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
     }
 
     private func attachButton(icon: String, label: String, text: String) -> some View {
@@ -158,64 +185,70 @@ struct ChatView: View {
         .glassCard(cornerRadius: 18)
     }
 
-    // MARK: Input bar
+    // MARK: Input bar (floating, grouped glass)
 
     private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.18)) { showAttachTray.toggle() }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 19, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-            }
-            .glassCircle()
-
-            HStack(alignment: .bottom, spacing: 6) {
-                TextField("Nachricht", text: $draft, axis: .vertical)
-                    .foregroundStyle(.white)
-                    .font(.system(size: 16.5 * store.settings.fontScale))
-                    .lineLimit(1...5)
-                    .focused($inputFocused)
-                    .submitLabel(.send)
-                    .onSubmit { send() }
-                if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        GlassEffectContainer(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 8) {
+                if chat.isSavedMessages {
                     Button {
-                        store.sendMessage(chatID: chat.id, text: "Sprachnachricht · 0:12 (Demo)")
-                        inputFocused = true
+                        withAnimation(.easeInOut(duration: 0.18)) { showAttachTray.toggle() }
                     } label: {
-                        Image(systemName: "mic.fill")
-                            .font(.system(size: 17))
-                            .foregroundStyle(Theme.secondaryText)
-                            .frame(width: 30, height: 30)
+                        Image(systemName: "plus")
+                            .font(.system(size: 19, weight: .medium))
+                            .foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                    }
+                    .glassCircle()
+                }
+
+                HStack(alignment: .bottom, spacing: 6) {
+                    TextField("Nachricht", text: $draft, axis: .vertical)
+                        .foregroundStyle(.white)
+                        .font(.system(size: 16.5 * store.settings.fontScale))
+                        .lineLimit(1...5)
+                        .focused($inputFocused)
+                        .submitLabel(.send)
+                        .onSubmit { send() }
+                    if chat.isSavedMessages,
+                       draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button {
+                            store.sendMessage(chatID: chat.id, text: "Sprachnachricht · 0:12 (Demo)")
+                            inputFocused = true
+                        } label: {
+                            Image(systemName: "mic.fill")
+                                .font(.system(size: 17))
+                                .foregroundStyle(Theme.secondaryText)
+                                .frame(width: 30, height: 30)
+                        }
                     }
                 }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .glassPill()
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .glassPill()
 
-            if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Button {
-                    send()
-                } label: {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.white)
-                        .frame(width: 40, height: 40)
-                        .background(Theme.accent, in: Circle())
+                if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button {
+                        send()
+                    } label: {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Theme.accent, in: Circle())
+                    }
                 }
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 6)
         .padding(.bottom, 10)
     }
 
     private func send() {
         let text = draft
         draft = ""
+        // Store routes: server chats → optimistic + POST,
+        // "Gespeichertes" → purely local.
         store.sendMessage(chatID: chat.id, text: text)
         if store.settings.vibrationEnabled {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()

@@ -1,0 +1,295 @@
+import SwiftUI
+
+/// Tab 1 — Chats: header, glass search, folder filter pill and the
+/// chat list, modeled on the reference screenshots.
+struct ChatsListView: View {
+    @EnvironmentObject private var store: Store
+    @State private var path: [String] = []
+    @State private var searchText = ""
+    @State private var folderFilter: String? = nil // nil = "Alle"
+    @State private var editMode: EditMode = .inactive
+    @State private var showContactPicker = false
+
+    /// The custom folder name, taken from the seeded chats.
+    private var folderName: String {
+        store.chats.compactMap(\.folder).first ?? "Favoriten"
+    }
+
+    private var visibleChats: [GGChat] {
+        store.sortedChats.filter { chat in
+            if let folderFilter, chat.folder != folderFilter { return false }
+            if !searchText.isEmpty,
+               !chat.title.localizedCaseInsensitiveContains(searchText) { return false }
+            return true
+        }
+    }
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            VStack(spacing: 10) {
+                header
+                searchField
+                filterPill
+                chatList
+            }
+            .padding(.top, 6)
+            .background(Color.black)
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: String.self) { chatID in
+                if let chat = store.chat(id: chatID) {
+                    ChatView(chat: chat)
+                }
+            }
+            .sheet(isPresented: $showContactPicker) {
+                ContactPickerSheet { contact in
+                    showContactPicker = false
+                    store.openChat(with: contact)
+                }
+            }
+        }
+        .onChange(of: store.pendingChatID) { _, newValue in
+            guard let chatID = newValue else { return }
+            store.pendingChatID = nil
+            if path.last != chatID {
+                path.append(chatID)
+            }
+        }
+        .dismissKeyboardOnTap()
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        HStack {
+            Button {
+                withAnimation { editMode = editMode.isEditing ? .inactive : .active }
+            } label: {
+                Text(editMode.isEditing ? "Fertig" : "Bearbeiten")
+                    .font(.system(size: 15.5))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+            }
+            .glassPill(interactive: true)
+
+            Spacer()
+
+            Text("Chats")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+
+            Spacer()
+
+            Button {
+                showContactPicker = true
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(width: 38, height: 38)
+            }
+            .glassCircle()
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: Search
+
+    private var searchField: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(Theme.secondaryText)
+            TextField("Suchen", text: $searchText)
+                .foregroundStyle(.white)
+                .autocorrectionDisabled()
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Theme.secondaryText)
+                }
+            }
+        }
+        .font(.system(size: 16))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .glassPill()
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: Folder filter
+
+    private var filterPill: some View {
+        HStack(spacing: 2) {
+            filterButton(title: "Alle", value: nil)
+            filterButton(title: folderName, value: folderName)
+        }
+        .padding(3)
+        .glassPill()
+        .padding(.horizontal, 16)
+    }
+
+    private func filterButton(title: String, value: String?) -> some View {
+        Button {
+            folderFilter = value
+        } label: {
+            Text(title)
+                .font(.system(size: 14.5, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background {
+                    if folderFilter == value {
+                        Capsule().fill(.white.opacity(0.16))
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: List
+
+    private var chatList: some View {
+        List {
+            ForEach(visibleChats) { chat in
+                NavigationLink(value: chat.id) {
+                    ChatRow(chat: chat)
+                }
+                .listRowBackground(Color.black)
+                .listRowSeparatorTint(.white.opacity(0.12))
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+            }
+            .onDelete { offsets in
+                for index in offsets {
+                    store.deleteChat(id: visibleChats[index].id)
+                }
+            }
+
+            if visibleChats.isEmpty {
+                Text(searchText.isEmpty
+                        ? "Keine Chats in dieser Auswahl."
+                        : "Keine Treffer für „\(searchText)“.")
+                    .foregroundStyle(Theme.secondaryText)
+                    .font(.system(size: 15))
+                    .listRowBackground(Color.black)
+                    .listRowSeparator(.hidden)
+            }
+
+            // Keeps the last rows clear of the floating tab bar.
+            Color.clear
+                .frame(height: 84)
+                .listRowBackground(Color.black)
+                .listRowSeparator(.hidden)
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .environment(\.editMode, $editMode)
+        .scrollDismissesKeyboard(.interactively)
+    }
+}
+
+// MARK: - Chat row
+
+struct ChatRow: View {
+    @EnvironmentObject private var store: Store
+    let chat: GGChat
+
+    var body: some View {
+        let last = store.lastMessage(for: chat.id)
+        HStack(spacing: 12) {
+            if chat.isSavedMessages {
+                SavedAvatarView(size: 54)
+            } else {
+                AvatarView(title: chat.title, colorIndex: chat.colorIndex, size: 54)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text(chat.title)
+                        .font(.system(size: 16.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    if chat.isMuted {
+                        Image(systemName: "speaker.slash.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.secondaryText)
+                    }
+                }
+                Text(previewText(last: last))
+                    .font(.system(size: 14.5))
+                    .foregroundStyle(Theme.secondaryText)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 6)
+
+            VStack(alignment: .trailing, spacing: 5) {
+                if let last {
+                    Text(TimeFormat.list(last.date))
+                        .font(.system(size: 13))
+                        .foregroundStyle(chat.unread > 0 ? Theme.accent : Theme.secondaryText)
+                }
+                if chat.unread > 0 {
+                    Text(chat.unread > 999 ? "999+" : "\(chat.unread)")
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2.5)
+                        .background(chat.isMuted ? Color(white: 0.35) : Theme.accent, in: Capsule())
+                }
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func previewText(last: GGMessage?) -> String {
+        if store.typingChatIDs.contains(chat.id) { return "schreibt …" }
+        guard let last else { return "Keine Nachrichten" }
+        return (last.isMine ? "Du: " : "") + last.text
+    }
+}
+
+// MARK: - Contact picker (compose button)
+
+struct ContactPickerSheet: View {
+    @EnvironmentObject private var store: Store
+    @Environment(\.dismiss) private var dismiss
+    let onPick: (GGContact) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(store.contacts.filter { !$0.isChannel && !$0.isGroup }) { contact in
+                    Button {
+                        onPick(contact)
+                    } label: {
+                        HStack(spacing: 12) {
+                            AvatarView(title: contact.name, colorIndex: contact.colorIndex, size: 44)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(contact.name)
+                                    .foregroundStyle(.white)
+                                    .font(.system(size: 16))
+                                Text(contact.status)
+                                    .foregroundStyle(Theme.secondaryText)
+                                    .font(.system(size: 13.5))
+                            }
+                        }
+                    }
+                    .listRowBackground(Color.black)
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color.black)
+            .navigationTitle("Neuer Chat")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+            }
+        }
+        .presentationBackground(.black)
+    }
+}

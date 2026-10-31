@@ -1,0 +1,6 @@
+build/
+build-normal/
+build-admin/
+Payload/
+*.ipa
+.DS_Store

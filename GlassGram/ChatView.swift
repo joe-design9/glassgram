@@ -20,6 +20,11 @@ struct ChatView: View {
     @State private var callContact: GGContact?
     @FocusState private var inputFocused: Bool
 
+#if QA
+    /// QA send-flow script phase (see `runQASendFlowIfRequested`).
+    @State private var qaPhase = "idle"
+#endif
+
     private var contact: GGContact? {
         chat.contactID.flatMap { store.contact(id: $0) }
     }
@@ -50,6 +55,10 @@ struct ChatView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .dismissKeyboardOnTap()
+#if QA
+        .overlay(alignment: .topTrailing) { qaStatusBadge }
+        .task { await runQASendFlowIfRequested() }
+#endif
         .onAppear {
             store.openChatID = chat.id
             store.markRead(chatID: chat.id)
@@ -253,8 +262,65 @@ struct ChatView: View {
         if store.settings.vibrationEnabled {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
-        inputFocused = true
+        // Keep the keyboard UP after sending (bug report 2026-10-31,
+        // sister app): re-assert focus on the next runloop passes so
+        // no gesture plumbing can steal it — the synchronous set used
+        // to lose the race against the tap guard's resign.
+        DispatchQueue.main.async { inputFocused = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            inputFocused = true
+        }
     }
+
+#if QA
+    // MARK: QA send-flow script (QA configuration ONLY — never in
+    // a release IPA). Launched with `-QASendFlow`, this drives the
+    // REAL send path twice and reports phase + live focus state in
+    // a badge, so the CI screenshots prove: message 1 sent →
+    // keyboard STILL focused (focus=1) → message 2 sent the same
+    // way. Guards the 2026-10-31 keyboard regression (every send
+    // used to kill the keyboard via the tap-outside guard).
+    private var qaStatusBadge: some View {
+        Text("QA \(qaPhase) focus=\(inputFocused ? 1 : 0) msgs=\(store.messages(for: chat.id).count)")
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color.red)
+            .padding(.top, 52)
+            .padding(.trailing, 8)
+            .allowsHitTesting(false)
+    }
+
+    private func runQASendFlowIfRequested() async {
+        guard ProcessInfo.processInfo.arguments.contains("-QASendFlow")
+        else { return }
+        func wait(_ seconds: Double) async {
+            try? await Task.sleep(
+                nanoseconds: UInt64(seconds * 1_000_000_000))
+        }
+        qaPhase = "wait"
+        await wait(6.0)
+        qaPhase = "focus"
+        inputFocused = true
+        await wait(0.8)
+        qaPhase = "type1"
+        draft = "QA-Testnachricht eins"
+        await wait(1.0)
+        qaPhase = "send1"
+        send()
+        await wait(2.0)
+        qaPhase = "after1"
+        await wait(1.2)
+        qaPhase = "type2"
+        draft = "QA-Testnachricht zwei"
+        await wait(1.0)
+        qaPhase = "send2"
+        send()
+        await wait(2.0)
+        qaPhase = "after2"
+    }
+#endif
 }
 
 // MARK: - Message bubble

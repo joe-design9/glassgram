@@ -5,10 +5,11 @@ import SwiftUI
 ///   .needsRegistration → RegistrationView
 ///   .needsCode         → CodeEntryView (normal build)
 ///   .waitingAdmin      → AdminWaitingView (admin build)
-///   .ready             → the four tabs with the floating glass
-///                        tab bar from the reference screenshots.
-/// All four tab roots stay alive (opacity-switched) so navigation
-/// state survives tab changes — same pattern as classic Telegram.
+///   .ready             → the four tabs in a NATIVE TabView —
+///                        iOS 26 renders its bar in the system's own
+///                        Liquid Glass (the hand-built glass bar was
+///                        rejected six times as a fake; the approved
+///                        Muse app uses the native bar too).
 struct RootView: View {
     @EnvironmentObject private var store: Store
     @Environment(\.scenePhase) private var scenePhase
@@ -63,28 +64,27 @@ struct RootView: View {
     }
 
     private var mainTabs: some View {
-        ZStack(alignment: .bottom) {
-            tabRoot(0) { ChatsListView() }
-            tabRoot(1) { ContactsView() }
-            tabRoot(2) { CallsView() }
-            tabRoot(3) { SettingsView() }
-
-            // Hide the tab bar while a conversation is open
-            // (Telegram does the same — the input bar takes its place).
-            if store.openChatID == nil {
-                // A whisper of neutral light behind the floating bar,
-                // so its glass visibly catches light over the black
-                // (like Telegram's bar) instead of reading matte.
-                tabBarSheen
-                GlassTabBar(selected: $store.selectedTab)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 10)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+        ZStack(alignment: .top) {
+            TabView(selection: $store.selectedTab) {
+                ChatsListView()
+                    .tabItem { Label("Chats", systemImage: "message.fill") }
+                    .tag(0)
+                ContactsView()
+                    .tabItem { Label("Kontakte", systemImage: "person.crop.circle.fill") }
+                    .tag(1)
+                CallsView()
+                    .tabItem { Label("Anrufe", systemImage: "phone.fill") }
+                    .tag(2)
+                SettingsView()
+                    .tabItem { Label("Einstellungen", systemImage: "gearshape.fill") }
+                    .tag(3)
+                    .badge("\u{21}")
             }
+            .tint(Theme.accent)
+            .tabBarMinimizeBehavior(.never)
 
             statusBanner
         }
-        .animation(.easeInOut(duration: 0.22), value: store.openChatID)
     }
 
     /// Connection state + transient messages, floating at the top:
@@ -122,108 +122,4 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.25), value: store.bannerText)
     }
 
-    /// Extremely subtle monochrome radial sheen behind the tab bar
-    /// (white ~5.5 %, fading to clear). Safe pattern: the size comes
-    /// ONLY from the GeometryReader (the screen), the glow circle is
-    /// positioned by its center and the whole layer is clipped to the
-    /// screen — it can never inflate the layout. Non-interactive.
-    private var tabBarSheen: some View {
-        GeometryReader { proxy in
-            let size = proxy.size
-            let diameter = size.width * 1.25
-            Circle()
-                .fill(RadialGradient(
-                    colors: [.white.opacity(0.055), .clear],
-                    center: .center, startRadius: 0, endRadius: diameter / 2
-                ))
-                .frame(width: diameter, height: diameter)
-                .position(x: size.width / 2, y: size.height - 30)
-        }
-        .ignoresSafeArea()
-        .clipped()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-
-    @ViewBuilder
-    private func tabRoot<Content: View>(_ index: Int,
-                                        @ViewBuilder content: () -> Content) -> some View {
-        content()
-            .opacity(store.selectedTab == index ? 1 : 0)
-            .allowsHitTesting(store.selectedTab == index)
-            .accessibilityHidden(store.selectedTab != index)
-    }
-}
-
-// MARK: - Floating glass tab bar
-
-struct GlassTabBar: View {
-    @Binding var selected: Int
-
-    private struct Tab {
-        let title: String
-        let icon: String
-        var badge: Bool = false
-    }
-
-    private let tabs: [Tab] = [
-        Tab(title: "Chats", icon: "message.fill"),
-        Tab(title: "Kontakte", icon: "person.crop.circle.fill"),
-        Tab(title: "Anrufe", icon: "phone.fill"),
-        Tab(title: "Einstellungen", icon: "gearshape.fill", badge: true),
-    ]
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(tabs.indices, id: \.self) { index in
-                let tab = tabs[index]
-                Button {
-                    selected = index
-                } label: {
-                    VStack(spacing: 3) {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: tab.icon)
-                                .font(.system(size: 21))
-                            if tab.badge {
-                                Circle()
-                                    .fill(Theme.badgeRed)
-                                    .frame(width: 11, height: 11)
-                                    .overlay(
-                                        Text("!")
-                                            .font(.system(size: 8, weight: .bold))
-                                            .foregroundStyle(.white)
-                                    )
-                                    .offset(x: 5, y: -3)
-                            }
-                        }
-                        Text(tab.title)
-                            .font(.system(size: 10, weight: .medium))
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(selected == index ? Theme.accent : Color(white: 0.75))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background {
-                        if selected == index {
-                            // Glass-on-glass selection (v2.0.2) —
-                            // the flat white-0.18 milk fill is gone.
-                            Capsule()
-                                .glassEffect(.regular.tint(Theme.accent.opacity(0.30)),
-                                             in: .capsule)
-                        }
-                    }
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(5)
-        // The bar FLOATS over the scrolling lists (they pass
-        // beneath it in the ZStack) and uses the INTERACTIVE
-        // glass variant, so it refracts content and answers
-        // touches with Apple's specular bounce (v2.0.0).
-        .glassEffect(.regular.tint(Theme.glassTint).interactive(), in: .capsule)
-        .specularEdge(Capsule())
-        .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
-    }
 }

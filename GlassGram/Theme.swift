@@ -33,62 +33,24 @@ enum Theme {
     ]
 }
 
-// MARK: - Depth backdrop (v2.0.2 — a wallpaper, not empty black)
+// MARK: - Depth backdrop
 //
-// Three rejected builds taught the same lesson: Liquid Glass is
-// refraction of whatever sits BEHIND the surface. v1.x floated
-// tinted .regular glass over pure black — nothing to refract, so
-// it read as matte gray plastic (the user's verdict, three times:
-// "immer noch kein Liquid Glass"). v2.0.0 added faint monochrome
-// depth (whites at 0.05–0.075) — on a real device still basically
-// black, still nothing to bend. Telegram's dark mode has the
-// answer: a dark WALLPAPER with real tonal and color variation,
-// so its glass always has something to refract — even in an
-// empty app.
-//
-// v2.0.1 therefore shipped a proper dark wallpaper — but its
-// light fields were still too dim: behind the gate screens the
-// glass card read as frosted gray (the user's fourth rejection).
-// v2.0.2 strengthens every field (accent 0.20→0.34, teal
-// 0.13→0.20) and adds a third, indigo field at mid-right, so
-// every screen — registration included — has unmistakable
-// color and tonal variation for the glass to refract, while
-// the identity stays deep blue-black.
+// Pure black plus ONE neutral sheen - the exact backdrop recipe
+// of the approved Muse app (AppBackdrop: paper black, a white
+// 0.075 radial at the top). This replaces the navy wallpaper
+// (v2.0.0-v2.0.2): its blue cast pushed into every glass surface
+// and read as dark plastic. The colorful refraction the old
+// comment chased belongs to CONTENT (avatars, bubbles, photos),
+// not to a colored scene wash.
 struct DepthBackdrop: View {
     var body: some View {
         ZStack {
-            // Deep blue-black base (v2.0.2: lifted top stop).
-            LinearGradient(
-                colors: [
-                    Color(red: 0.055, green: 0.085, blue: 0.190),
-                    Color(red: 0.012, green: 0.016, blue: 0.035),
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
-            // Accent light field from the upper left — the main
-            // thing the floating header/tab glass refracts.
+            Color.black
             RadialGradient(
-                colors: [Theme.accent.opacity(0.34), .clear],
-                center: UnitPoint(x: 0.12, y: 0.02),
-                startRadius: 0, endRadius: 620
-            )
-            // Indigo depth at mid-right (v2.0.2) — gives the
-            // right-hand glass edges their own color to bend.
-            RadialGradient(
-                colors: [Color(red: 0.36, green: 0.30, blue: 0.85).opacity(0.15), .clear],
-                center: UnitPoint(x: 0.92, y: 0.30),
-                startRadius: 0, endRadius: 480
-            )
-            // Cool teal depth from the lower right.
-            RadialGradient(
-                colors: [Color(red: 0.10, green: 0.45, blue: 0.50).opacity(0.20), .clear],
-                center: UnitPoint(x: 0.95, y: 0.88),
-                startRadius: 0, endRadius: 560
-            )
-            // A soft neutral lift behind the tab bar zone.
-            RadialGradient(
-                colors: [Color(white: 0.13), .clear],
-                center: .bottom, startRadius: 0, endRadius: 380
+                colors: [Color.white.opacity(0.075), Color.white.opacity(0.0)],
+                center: UnitPoint(x: 0.5, y: -0.1),
+                startRadius: 0,
+                endRadius: 620
             )
         }
         .ignoresSafeArea()
@@ -112,16 +74,15 @@ struct DepthBackdrop: View {
 
 extension View {
     /// Specular top highlight: gradient stroke over a glass shape.
-    /// Bright (.white 0.55) at the top edge, fading to clear at the
-    /// bottom. Never hit-testable.
+    /// The approved Muse app's exact rim values: white 0.30 at the
+    /// top edge fading to white 0.04 at the bottom, 1 pt. The hotter
+    /// 0.55 rim this replaces drew a hard plastic edge on dark
+    /// panels. Never hit-testable.
     func specularEdge<S: InsettableShape>(_ shape: S) -> some View {
         overlay(
             shape.strokeBorder(
                 LinearGradient(
-                    colors: [.white.opacity(0.55),
-                             .white.opacity(0.14),
-                             .white.opacity(0.03),
-                             .clear],
+                    colors: [.white.opacity(0.30), .white.opacity(0.04)],
                     startPoint: .top, endPoint: .bottom
                 ),
                 lineWidth: 1

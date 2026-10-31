@@ -56,6 +56,7 @@ struct ChatView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .dismissKeyboardOnTap()
 #if QA
         .overlay(alignment: .topTrailing) { qaStatusBadge }

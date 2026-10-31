@@ -74,7 +74,7 @@ struct CallsView: View {
                         .background {
                             if filter == option {
                                 Capsule()
-                                    .glassEffect(.clear.tint(Theme.accent.opacity(0.30)),
+                                    .glassEffect(.regular.tint(Theme.accent.opacity(0.30)),
                                                  in: .capsule)
                             }
                         }

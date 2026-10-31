@@ -90,15 +90,16 @@ struct DepthBackdrop: View {
 
 // MARK: - Glass styles
 //
-// v2.0.1 — the .clear reckoning. Every neutral surface used
-// .regular (the FROSTED variant) plus a white tint at 0.13–0.14:
-// two milky layers that read as gray plastic. Real Liquid Glass —
-// Apple's demos, Telegram's bars — is the CLEAR variant: nearly
-// transparent, strong refraction and edge lensing, no milk film.
-// All neutral glass is therefore .clear with NO tint; color lives
-// only in the wallpaper behind it and in the accent-tinted own
-// bubbles / CTA buttons. The specular stroke and float shadow
-// stay on top.
+// v2.0.2 fix — the .clear mistake, corrected. v2.0.1 switched
+// every surface from .regular to .clear on a wrong theory
+// ("real glass is clear"). Wrong: .clear is Apple's variant
+// for media backgrounds and renders as a faint tinted film
+// over dark/flat content — the "Fake Glass" the user rejected
+// five times. The two apps the user APPROVED (Muse Royal
+// Casino, the Muse app) both use .regular everywhere.
+// GlassGram now uses .regular everywhere too — same variant,
+// same tints, regardless of what sits behind the surface.
+// NEVER switch this back to .clear.
 
 extension View {
     /// Specular top highlight: gradient stroke over a glass shape.
@@ -122,7 +123,7 @@ extension View {
 
     /// Grouped card (Settings-style): one glass surface around content.
     func glassCard(cornerRadius: CGFloat = 22) -> some View {
-        glassEffect(.clear, in: .rect(cornerRadius: cornerRadius))
+        glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
             .specularEdge(RoundedRectangle(cornerRadius: cornerRadius))
             .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
     }
@@ -130,7 +131,7 @@ extension View {
     /// Capsule glass — pills, segmented controls, the input bar,
     /// the floating tab bar.
     func glassPill(interactive: Bool = false) -> some View {
-        glassEffect(interactive ? .clear.interactive() : .clear,
+        glassEffect(interactive ? .regular.interactive() : .regular,
                     in: .capsule)
             .specularEdge(Capsule())
             .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
@@ -138,7 +139,7 @@ extension View {
 
     /// Round glass button (header actions, call controls).
     func glassCircle(interactive: Bool = true) -> some View {
-        glassEffect(interactive ? .clear.interactive() : .clear,
+        glassEffect(interactive ? .regular.interactive() : .regular,
                     in: .circle)
             .specularEdge(Circle())
             .shadow(color: .black.opacity(0.40), radius: 9, x: 0, y: 4)

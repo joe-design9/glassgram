@@ -38,7 +38,7 @@ private struct GateField: View {
         .padding(.vertical, 12)
         // Real Liquid Glass (v2.0.2) — the flat white-0.07 fill
         // was one of the gray panels the user kept rejecting.
-        .glassEffect(.clear, in: .rect(cornerRadius: 14))
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
         .specularEdge(RoundedRectangle(cornerRadius: 14))
     }
 }
@@ -93,7 +93,7 @@ private struct GatePrimaryButton: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
         }
-        .glassEffect(.clear.tint(Theme.accent.opacity(0.65)).interactive(), in: .capsule)
+        .glassEffect(.regular.tint(Theme.accent.opacity(0.65)).interactive(), in: .capsule)
         .disabled(busy)
     }
 }

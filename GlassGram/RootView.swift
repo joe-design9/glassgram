@@ -207,7 +207,7 @@ struct GlassTabBar: View {
                             // Glass-on-glass selection (v2.0.2) —
                             // the flat white-0.18 milk fill is gone.
                             Capsule()
-                                .glassEffect(.clear.tint(Theme.accent.opacity(0.30)),
+                                .glassEffect(.regular.tint(Theme.accent.opacity(0.30)),
                                              in: .capsule)
                         }
                     }
@@ -221,7 +221,7 @@ struct GlassTabBar: View {
         // beneath it in the ZStack) and uses the INTERACTIVE
         // glass variant, so it refracts content and answers
         // touches with Apple's specular bounce (v2.0.0).
-        .glassEffect(.clear.interactive(), in: .capsule)
+        .glassEffect(.regular.interactive(), in: .capsule)
         .specularEdge(Capsule())
         .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 7)
     }

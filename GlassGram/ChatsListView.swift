@@ -191,6 +191,7 @@ struct ChatsListView: View {
     // MARK: List
 
     private var chatList: some View {
+        ScrollViewReader { proxy in
         List {
             ForEach(visibleChats) { chat in
                 // DIRECT tap navigation (v1.1.0 fix): the whole row is
@@ -252,6 +253,19 @@ struct ChatsListView: View {
         .contentMargins(.top, listTopInset, for: .scrollContent)
         .environment(\.editMode, $editMode)
         .scrollDismissesKeyboard(.interactively)
+        .onChange(of: store.demoTick) { _, tick in
+            // QA demo video only (isQADemoVideo is false in
+            // release): scroll the list so the glass bars refract
+            // moving rows during the recording.
+            guard Store.isQADemoVideo,
+                  let first = visibleChats.first,
+                  let last = visibleChats.last else { return }
+            withAnimation(.easeInOut(duration: 2.4)) {
+                if tick == 1 { proxy.scrollTo(last.id, anchor: .bottom) }
+                if tick == 2 { proxy.scrollTo(first.id, anchor: .top) }
+            }
+        }
+        }
     }
 
     // MARK: Empty state (Telegram style)

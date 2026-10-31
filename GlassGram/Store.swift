@@ -30,6 +30,58 @@ final class Store: ObservableObject {
         #endif
     }
 
+    /// QA demo-video mode: launched with `-QADemoVideo` (plus
+    /// `-UITestMode`), the app drives itself through its tabs and
+    /// scrolls its lists, so a simulator screen recording shows
+    /// the Liquid Glass refracting moving content. QA only.
+    static var isQADemoVideo: Bool {
+        #if QA
+        return ProcessInfo.processInfo.arguments.contains("-QADemoVideo")
+        #else
+        return false
+        #endif
+    }
+
+    // MARK: - QA demo video driver
+
+    @Published var demoTick: Int = 0
+    private var demoDriverStarted = false
+
+    /// Timed self-drive for the QA demo recording. Started once
+    /// from RootView; a no-op outside demo mode.
+    func startDemoDriverIfNeeded() {
+        #if QA
+        guard Store.isQADemoVideo, !demoDriverStarted else { return }
+        demoDriverStarted = true
+        Task { @MainActor in
+            func wait(_ seconds: Double) async {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            }
+            await wait(1.5)
+            demoTick = 1            // chat list scrolls down
+            await wait(4.5)
+            demoTick = 2            // chat list scrolls back up
+            await wait(4.0)
+            selectedTab = 1         // Kontakte
+            await wait(4.0)
+            selectedTab = 2         // Anrufe
+            await wait(4.0)
+            selectedTab = 3         // Einstellungen
+            await wait(4.0)
+            selectedTab = 0         // back to Chats, open Lena
+            if let lena = chats.first(where: { $0.title.contains("Lena") }) {
+                pendingChatID = lena.id
+            }
+            await wait(2.0)
+            demoTick = 3            // messages scroll to top
+            await wait(5.0)
+            demoTick = 4            // messages scroll to bottom
+            await wait(5.0)
+            demoTick = 5            // messages scroll to top again
+        }
+        #endif
+    }
+
     private enum Keys {
         static let profileName = "gg.profileName"
         // v2 key set (since 1.1.0): the app starts EMPTY like a real

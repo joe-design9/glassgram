@@ -34,6 +34,7 @@ struct RootView: View {
         .task {
             await store.bootstrap()
         }
+        .onAppear { store.startDemoDriverIfNeeded() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 Task { await store.appBecameActive() }

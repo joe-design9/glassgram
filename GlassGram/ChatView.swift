@@ -160,6 +160,22 @@ struct ChatView: View {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
             }
+            .onChange(of: store.demoTick) { _, tick in
+                // QA demo video only: scroll the conversation so
+                // the bubbles pass under the glass header pill.
+                guard Store.isQADemoVideo else { return }
+                let msgs = store.messages(for: chat.id)
+                if tick == 3 || tick == 5, let firstID = msgs.first?.id {
+                    withAnimation(.easeInOut(duration: 2.6)) {
+                        proxy.scrollTo(firstID, anchor: .top)
+                    }
+                }
+                if tick == 4 {
+                    withAnimation(.easeInOut(duration: 2.6)) {
+                        proxy.scrollTo("bottom", anchor: .bottom)
+                    }
+                }
+            }
         }
     }
 

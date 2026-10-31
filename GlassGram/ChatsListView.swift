@@ -55,6 +55,7 @@ struct ChatsListView: View {
                 }
                 .padding(.top, 6)
             }
+            .background { DepthBackdrop() }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { chatID in
                 if let chat = store.chat(id: chatID) {

@@ -41,6 +41,7 @@ struct SettingsView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
             }
+            .background { DepthBackdrop() }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { route in
                 destination(for: route)

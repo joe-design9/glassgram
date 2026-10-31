@@ -40,6 +40,8 @@ struct CallsView: View {
                     callList
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { DepthBackdrop() }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showPicker) {
                 CallPickerSheet { contact in

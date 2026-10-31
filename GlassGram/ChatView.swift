@@ -38,6 +38,8 @@ struct ChatView: View {
 
     var body: some View {
         ZStack {
+            DepthBackdrop()
+
             messageList
 
             // Floating glass header.
